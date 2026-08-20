@@ -1,0 +1,92 @@
+:root {
+  color-scheme: dark;
+  --ink: #d63a2a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #05060a;
+  color: #d8d4c8;
+  font-family: "Courier New", ui-monospace, monospace;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+#screen {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  cursor: crosshair;
+}
+
+#loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #05060a;
+  color: var(--ink);
+  font-size: clamp(14px, 3.5vw, 26px);
+  font-weight: bold;
+  letter-spacing: 0.16em;
+  text-shadow: 0 0 18px rgba(214, 58, 42, 0.55);
+  z-index: 10;
+}
+
+#touch-ui {
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(70px, env(safe-area-inset-bottom));
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 5;
+}
+
+#touch-ui.visible { display: flex; }
+
+#touch-ui button {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  border: 2px solid rgba(216, 212, 200, 0.35);
+  background: rgba(20, 22, 26, 0.55);
+  color: #e8e2c8;
+  font: bold 13px "Courier New", monospace;
+  letter-spacing: 0.08em;
+  backdrop-filter: blur(2px);
+}
+
+#touch-ui button:active {
+  background: rgba(214, 58, 42, 0.55);
+  border-color: #f0e8c8;
+}
+
+#btn-fire {
+  width: 92px;
+  height: 92px;
+  border-color: rgba(214, 58, 42, 0.6);
+}
+
+.noscript {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+  background: #05060a;
+  z-index: 20;
+}

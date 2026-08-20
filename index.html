@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>NEURODOOM - a browser raycaster FPS</title>
+<meta name="description" content="A DOOM-style raycasting first person shooter that runs in the browser. No plugins, no downloads, no assets - every texture, sprite and sound is generated in code.">
+<meta name="theme-color" content="#101014">
+<meta property="og:title" content="NEURODOOM">
+<meta property="og:description" content="A DOOM-style raycasting FPS in pure JavaScript. Three levels, three weapons, no assets.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23101014'/><text y='24' x='16' text-anchor='middle' font-size='22' font-family='monospace' fill='%23d63a2a'>D</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="screen" width="960" height="540"></canvas>
+
+  <div id="loading">BOOTING...</div>
+
+  <div id="touch-ui">
+    <button id="btn-weapon" type="button" aria-label="Next weapon">WPN</button>
+    <button id="btn-use" type="button" aria-label="Use">USE</button>
+    <button id="btn-fire" type="button" aria-label="Fire">FIRE</button>
+  </div>
+
+  <noscript>
+    <p class="noscript">NEURODOOM needs JavaScript. Please enable it and reload.</p>
+  </noscript>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
