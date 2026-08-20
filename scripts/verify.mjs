@@ -37,23 +37,33 @@ for (let i = 0; i < levelCount(); i++) {
   const sy = Math.floor(level.start.y);
   if (walls[sy * w + sx]) fail(`${label}: player starts inside a wall`);
 
-  const seen = new Uint8Array(w * h);
-  const stack = [sy * w + sx];
-  seen[stack[0]] = 1;
-  while (stack.length) {
-    const c = stack.pop();
-    const cx = c % w;
-    const cy = (c / w) | 0;
-    for (const [dx, dy] of DIRS) {
-      const nx = cx + dx;
-      const ny = cy + dy;
-      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-      const n = ny * w + nx;
-      if (seen[n] || (walls[n] && !doors.has(n))) continue;
-      seen[n] = 1;
-      stack.push(n);
+  // Flood fill from the start. `keys` decides whether locked doors count as
+  // passable, which is how we tell "needs the keycard" from "unwinnable".
+  const flood = (keys) => {
+    const seen = new Uint8Array(w * h);
+    const stack = [sy * w + sx];
+    seen[stack[0]] = 1;
+    while (stack.length) {
+      const c = stack.pop();
+      const cx = c % w;
+      const cy = (c / w) | 0;
+      for (const [dx, dy] of DIRS) {
+        const nx = cx + dx;
+        const ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const n = ny * w + nx;
+        if (seen[n]) continue;
+        const door = doors.get(n);
+        if (walls[n] && !door) continue;
+        if (door && door.locked && !keys) continue;
+        seen[n] = 1;
+        stack.push(n);
+      }
     }
-  }
+    return seen;
+  };
+  const seen = flood(true);
+  const seenWithoutKey = flood(false);
 
   let orphans = 0;
   for (let c = 0; c < w * h; c++) if (!walls[c] && !seen[c]) orphans++;
@@ -77,9 +87,15 @@ for (let i = 0; i < levelCount(); i++) {
     if (!reachable) fail(`${label}: the exit switch cannot be reached`);
   }
 
-  const key = level.things.some((t) => t.type === 'redkey');
+  const keys = level.things.filter((t) => t.type === 'redkey');
   const lockedDoors = [...doors.values()].filter((d) => d.locked).length;
-  if (lockedDoors && !key) fail(`${label}: has ${lockedDoors} locked door(s) but no red keycard`);
+  if (lockedDoors && !keys.length) fail(`${label}: has ${lockedDoors} locked door(s) but no red keycard`);
+  for (const k of keys) {
+    // A keycard locked behind the door it opens makes the level unwinnable.
+    if (!seenWithoutKey[Math.floor(k.y) * w + Math.floor(k.x)]) {
+      fail(`${label}: the red keycard at ${k.x},${k.y} sits behind a locked door`);
+    }
+  }
 
   console.log(`${label}: ${w}x${h}, ${level.things.length} things, ${doors.size} doors, ${exits.size} exit(s) - ok`);
 }
