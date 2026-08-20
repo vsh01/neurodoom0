@@ -33,8 +33,17 @@ export class Renderer {
     this.canvas.height = Math.floor(this.displayH * dpr);
     this.ctx.imageSmoothingEnabled = false;
 
-    const w = this.baseWidth;
-    const h = clamp(Math.round((w * this.displayH) / this.displayW), 180, 460);
+    // The view is letterboxed into a sane aspect range: a very tall window
+    // would otherwise mean either stretched pixels or a keyhole-narrow FOV.
+    const viewAspect = clamp(this.displayW / this.displayH, 1.05, 2.6);
+    let w = this.baseWidth;
+    let h = Math.round(w / viewAspect);
+    const budget = 160000; // pixels per frame the inner loops have to fill
+    if (w * h > budget) {
+      const s = Math.sqrt(budget / (w * h));
+      w = Math.round((w * s) / 2) * 2;
+      h = Math.round(h * s);
+    }
     if (w !== this.w || h !== this.h) {
       this.w = w;
       this.h = h;
@@ -263,10 +272,20 @@ export class Renderer {
     this.vctx.putImageData(this.image, 0, 0);
   }
 
-  // Blit the framebuffer (plus anything drawn on top of it) to the display.
+  // Blit the framebuffer (plus anything drawn on top of it) to the display,
+  // centred, with black bars when the window aspect does not match the view.
   present() {
     const { ctx, canvas } = this;
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this.view, 0, 0, canvas.width, canvas.height);
+    const scale = Math.min(canvas.width / this.w, canvas.height / this.h);
+    const dw = Math.round(this.w * scale);
+    const dh = Math.round(this.h * scale);
+    const dx = Math.floor((canvas.width - dw) / 2);
+    const dy = Math.floor((canvas.height - dh) / 2);
+    if (dx > 0 || dy > 0) {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    ctx.drawImage(this.view, dx, dy, dw, dh);
   }
 }

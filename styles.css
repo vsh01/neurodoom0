@@ -46,19 +46,19 @@ html, body {
 
 #touch-ui {
   position: fixed;
-  right: max(14px, env(safe-area-inset-right));
-  bottom: max(70px, env(safe-area-inset-bottom));
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px));
   display: none;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   z-index: 5;
 }
 
 #touch-ui.visible { display: flex; }
 
 #touch-ui button {
-  width: 74px;
-  height: 74px;
+  width: 62px;
+  height: 62px;
   border-radius: 50%;
   border: 2px solid rgba(216, 212, 200, 0.35);
   background: rgba(20, 22, 26, 0.55);
@@ -74,8 +74,8 @@ html, body {
 }
 
 #btn-fire {
-  width: 92px;
-  height: 92px;
+  width: 84px;
+  height: 84px;
   border-color: rgba(214, 58, 42, 0.6);
 }
 
