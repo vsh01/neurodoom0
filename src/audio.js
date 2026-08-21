@@ -123,6 +123,19 @@ export class AudioEngine {
         this.burst({ dur: 0.22, type: 'bandpass', f0: 620, f1: 180, q: 2.4, gain: 0.5 * v, delay: 0.04 });
         this.tone({ type: 'sine', f0: 130, f1: 34, dur: 0.32, gain: 0.4 * v });
         break;
+      case 'grab':
+        this.burst({ dur: 0.2, type: 'bandpass', f0: 700, f1: 220, q: 2.2, gain: 0.5 * v });
+        this.tone({ type: 'sine', f0: 220, f1: 90, dur: 0.18, gain: 0.22 * v });
+        break;
+      case 'throw':
+        this.burst({ dur: 0.3, type: 'highpass', f0: 400, f1: 2400, gain: 0.34 * v });
+        this.tone({ type: 'sawtooth', f0: 160, f1: 420, dur: 0.22, gain: 0.16 * v });
+        break;
+      case 'smash':
+        this.burst({ dur: 0.55, type: 'lowpass', f0: 1800, f1: 70, gain: 0.9 * v });
+        this.tone({ type: 'sine', f0: 150, f1: 30, dur: 0.45, gain: 0.55 * v });
+        this.burst({ dur: 0.3, type: 'bandpass', f0: 520, f1: 160, q: 2, gain: 0.5 * v, delay: 0.03 });
+        break;
       case 'gib':
         this.burst({ dur: 0.45, type: 'bandpass', f0: 900, f1: 140, q: 1.2, gain: 0.75 * v });
         this.burst({ dur: 0.3, type: 'highpass', f0: 2200, f1: 900, gain: 0.3 * v, delay: 0.05 });

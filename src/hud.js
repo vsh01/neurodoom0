@@ -175,7 +175,7 @@ export class Hud {
 
     // limb readiness: three pips that go dark while the tentacles recover
     this.drawText(ctx, 'REACH', unit * 88, y0 + 13, 8, DIM);
-    const ready = game.crush ? 0 : clamp(1 - game.crushCooldown / 0.7, 0, 1);
+    const ready = game.grab ? 0 : clamp(1 - game.grabCooldown / 0.65, 0, 1);
     for (let i = 0; i < 3; i++) {
       const lit = ready > (i + 0.5) / 3;
       const x = Math.round(unit * 88 + i * 8);
@@ -246,9 +246,9 @@ export class Hud {
     this.drawText(ctx, 'YOU ARE THE THING WITH THE TENTACLES', cx, h * 0.3 + 58, 9, '#c8c2a8', 'center');
     const blink = Math.floor(game.time * 2) % 2 === 0;
     if (blink) this.drawText(ctx, 'CLICK OR PRESS ENTER TO PLAY', cx, h * 0.62, 12, '#f0e8c8', 'center');
-    this.drawText(ctx, 'WASD MOVE   MOUSE LOOK   CLICK LASH OUT   E USE   TAB MAP', cx, h - 54, 8, '#8a8a92', 'center');
+    this.drawText(ctx, 'WASD MOVE   MOUSE LOOK   CLICK GRAB AND THROW   E USE   TAB MAP', cx, h - 54, 8, '#8a8a92', 'center');
     this.drawText(ctx, 'SHIFT RUN   M MUSIC   P PAUSE   R RESTART LEVEL', cx, h - 42, 8, '#8a8a92', 'center');
-    this.drawText(ctx, 'NO GUNS. ANYTHING IN REACH GETS TORN APART', cx, h - 30, 8, '#8a5aa8', 'center');
+    this.drawText(ctx, 'NO GUNS. THROW THEM AT THE WALLS, AT EACH OTHER', cx, h - 30, 8, '#8a5aa8', 'center');
   }
 
   paused(ctx, w, h) {

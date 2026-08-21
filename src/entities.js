@@ -54,6 +54,8 @@ export class Enemy extends Actor {
     this.radius = this.type.radius;
     this.strafe = 0;
     this.strafeTimer = 0;
+    this.held = false;   // in a tentacle's grip: no AI, lifted off the floor
+    this.heldZ = 0;
   }
 
   get alive() { return this.state !== 'dead'; }
@@ -65,7 +67,7 @@ export class Enemy extends Actor {
     const dy = p.y - this.y;
     const dist = Math.hypot(dx, dy);
 
-    if (this.state === 'dead') return;
+    if (this.state === 'dead' || this.held) return;
 
     this.cooldown -= dt;
     const sees = dist < 24 && g.canSee(this.x, this.y, p.x, p.y);
@@ -178,8 +180,78 @@ export class Enemy extends Actor {
     if (this.state === 'attack') frame = set.attack[0];
     else if (this.state === 'pain') frame = set.pain[0];
     else frame = set.walk[Math.floor(this.anim) % set.walk.length];
+    if (this.held) frame = set.pain[0];
     return {
-      x: this.x, y: this.y, frame, base: 0, height: this.type.spriteHeight,
+      x: this.x, y: this.y, frame, base: this.heldZ, height: this.type.spriteHeight,
+      glow: false, lightBias: 0,
+    };
+  }
+}
+
+// A monster in flight after being thrown. It kills whatever it hits on the way
+// and comes apart against the first wall.
+export class ThrownBody extends Actor {
+  constructor(game, typeName, x, y, z, vx, vy, vz) {
+    super(game, x, y);
+    this.kind = 'thrown';
+    this.typeName = typeName;
+    this.type = ENEMY_TYPES[typeName];
+    this.z = z;
+    this.vx = vx;
+    this.vy = vy;
+    this.vz = vz;
+    this.anim = 0;
+    this.hitList = new Set();
+    this.life = 3;
+  }
+
+  update(dt) {
+    this.anim += dt * 14;
+    this.life -= dt;
+    if (this.life <= 0) { this.smash(); return; }
+    const g = this.game;
+    const steps = 4;
+    for (let i = 0; i < steps; i++) {
+      const sdt = dt / steps;
+      this.vz -= 11 * sdt;
+      const nx = this.x + this.vx * sdt;
+      const ny = this.y + this.vy * sdt;
+      if (g.isWall(nx, this.y) || g.isWall(this.x, ny)) { this.smash(); return; }
+      this.x = nx;
+      this.y = ny;
+      this.z += this.vz * sdt;
+      if (this.z <= 0.06) { this.smash(); return; }
+
+      // bowl through anything in the way
+      for (const a of g.actors) {
+        if (a === this || a.remove || this.hitList.has(a.id)) continue;
+        const d = Math.hypot(a.x - this.x, a.y - this.y);
+        if (a.kind === 'enemy' && a.alive && !a.held && d < 0.75) {
+          this.hitList.add(a.id);
+          g.bodyHitsEnemy(this, a);
+          this.vx *= 0.82;
+          this.vy *= 0.82;
+        } else if (a.kind === 'prop' && a.alive && a.typeName === 'barrel' && d < 0.6) {
+          this.hitList.add(a.id);
+          a.hurt(60);
+        }
+      }
+    }
+  }
+
+  smash() {
+    if (this.remove) return;
+    this.remove = true;
+    this.game.smashBody(this);
+  }
+
+  spriteInfo() {
+    const set = this.game.art.enemies[this.typeName];
+    const frames = set.walk;
+    return {
+      x: this.x, y: this.y,
+      frame: Math.floor(this.anim) % 2 ? set.pain[0] : frames[Math.floor(this.anim) % frames.length],
+      base: this.z, height: this.type.spriteHeight,
       glow: false, lightBias: 0,
     };
   }

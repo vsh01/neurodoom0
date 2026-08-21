@@ -1,9 +1,9 @@
 # NEURODOOM
 
 A DOOM-style raycaster that runs in a browser tab, except you are the monster
-and there are no guns. You are a black mass of tentacles: two of them frame the
-view, and they lash out to take hold of anything in front of you and tear it
-into pieces. No engine, no framework, no build step, **no asset files at all** -
+and there are no guns. You are a black mass of tentacles: the front pair picks
+monsters up and throws them into the walls, and a second pair crawls out on its
+own to tear apart whatever gets close enough to touch you. No engine, no framework, no build step, **no asset files at all** -
 every wall texture, monster sprite, sound effect and the music are generated in
 JavaScript when the page loads.
 
@@ -18,7 +18,7 @@ JavaScript when the page loads.
 | --- | --- |
 | Move / strafe | `W` `A` `S` `D` |
 | Turn | mouse, or `←` `→` |
-| Lash out | left mouse button, or `Ctrl` |
+| Grab and throw | left mouse button, or `Ctrl` |
 | Crush | automatic - anything that walks into reach in front of you |
 | Open doors, press switches | `E`, `Space` or right mouse button |
 | Run | `Shift` |
@@ -36,16 +36,17 @@ Three levels - *Hangar Zero*, *Toxin Refinery* and *Hell's Gate*. Each one is
 locked behind a red keycard and ends at an exit switch you have to find and
 press. Health and armour carry over between levels.
 
-- **One weapon: you.** The fire button throws the tentacles at whatever you are
-  looking at, up to 3.6 squares away, for 76 damage - a former human comes apart
-  in one grab, a demon in two. Miss and they snap at empty air and you have lost
-  the moment.
-- **The crush.** Anything that gets within 2.5 squares in front of you is taken
-  hold of automatically, for 58 damage, on a cooldown. Neither reach goes
-  through walls.
-- **Everything comes apart.** There are no corpses: whatever kills a monster
-  scatters a dozen chunks of it, which bounce off the walls and stay on the
-  floor for the rest of the level.
+- **Grab and throw.** The fire button reaches out up to 3.6 squares, takes hold
+  of whatever you are looking at and lifts it. You keep aiming while it is held,
+  then it goes flying: the landing kills it outright, whatever species it is,
+  and every monster the body bowls through on the way dies too. Barrels it hits
+  go up. Miss, and the limbs snap at empty air.
+- **The crush.** A second pair comes out on its own for anything that gets
+  within 2.5 squares in front of you and squeezes it for 58 damage, on a
+  cooldown. Neither reach goes through walls.
+- **Everything comes apart.** There are no corpses: every death scatters a
+  dozen chunks that bounce off the walls and stay on the floor for the rest of
+  the level.
 - Health, armour and the red keycard are the only pickups now - there is no
   ammunition to find, so the whole level is spent closing distance.
 - **Three monsters.** Former humans shoot back, hellspawn lob fireballs, and
@@ -69,9 +70,9 @@ point-scaled to the display canvas.
 | `src/textures.js` | Procedural 64x64 wall and flat textures (brick, tech panels, blood, doors, hazard supports) |
 | `src/sprites.js` | Procedural monster, pickup, prop and effect sprites drawn on an off-screen canvas |
 | `src/tentacles.js` | Tapered-bezier tentacle ribbons - the limbs at rest and mid-strike |
-| `src/entities.js` | Monster AI, pickups, barrels, projectiles, gibs, effects |
+| `src/entities.js` | Monster AI, pickups, barrels, projectiles, thrown bodies, gibs, effects |
 | `src/levels.js` | ASCII level maps compiled into typed arrays |
-| `src/game.js` | Player, the strike and crush attacks, doors, keys, scoring, frame update |
+| `src/game.js` | Player, the grab/throw and crush attacks, doors, keys, scoring, frame update |
 | `src/hud.js` | Status bar, messages, automap, menu screens |
 | `src/audio.js` | Web Audio synthesis for every sound effect plus a 16-step music loop |
 | `src/input.js` | Keyboard, pointer-lock mouse look, touch controls |
@@ -122,12 +123,13 @@ NEURODOOM - шутер от первого лица в стиле DOOM, кото
 
 Играть: **https://vsh01.github.io/neurodoom0/**
 
-Оружия нет: вы играете за чёрную тварь с тентаклями. Левая кнопка - удар
-щупальцами по тому, на что смотрите (до 3.6 клетки), всё, что подходит ближе
-2.5 клетки, щупальца хватают сами. Жертву разрывает на куски, которые остаются
-лежать на полу.
+Оружия нет: вы играете за чёрную тварь с тентаклями. Левая кнопка - схватить
+монстра (до 3.6 клетки), поднять и швырнуть: удар о стену убивает сразу, и все,
+кого тело сбивает по пути, тоже гибнут. Целиться можно, пока жертва в захвате.
+Всё, что подходит ближе 2.5 клетки, вторая пара щупалец хватает сама и рвёт на
+части. Куски остаются лежать на полу.
 
-Управление: `WASD` - движение, мышь - обзор, левая кнопка - удар, `E` или
+Управление: `WASD` - движение, мышь - обзор, левая кнопка - схватить и бросить, `E` или
 пробел - открыть дверь / нажать рубильник, `Shift` - бег, `Tab` - карта,
 `P` - пауза, `R` - перезапуск уровня, `M` - музыка.
 

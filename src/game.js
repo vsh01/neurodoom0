@@ -4,7 +4,7 @@
 import { clamp, rand, randInt, angleDiff } from './util.js';
 import { buildLevel, levelCount } from './levels.js';
 import { T } from './textures.js';
-import { Enemy, Item, Prop, Projectile, Effect, Gib } from './entities.js';
+import { Enemy, Item, Prop, Projectile, Effect, Gib, ThrownBody } from './entities.js';
 import { Hud } from './hud.js';
 import { tentacle } from './tentacles.js';
 
@@ -13,20 +13,25 @@ const WALK_SPEED = 3.4;
 const RUN_SPEED = 6.0;
 const BAR_H = 38;
 
-// You have no guns. You have tentacles: they take hold of anything that walks
-// into reach on their own, and the fire button throws them a little further at
-// whatever you are looking at. Either way the target comes apart.
-const CRUSH_RANGE = 2.5;    // automatic grab
-const STRIKE_RANGE = 3.6;   // deliberate lash on the fire button
-const CRUSH_ARC = 1.4;      // radians either side of where you are looking
-const STRIKE_ARC = 1.0;
+// You have no guns, you have limbs. The front pair takes hold of whatever you
+// are looking at, lifts it and throws it - the landing kills it outright, and
+// anything it bowls through on the way dies too. A second pair crawls out on
+// its own for whatever gets close enough to touch you, and tears it apart.
+const GRAB_RANGE = 3.6;
+const GRAB_ARC = 1.0;       // radians either side of where you are looking
+const GRAB_REACH = 0.16;    // seconds for the limbs to get there
+const GRAB_HOLD = 0.26;     // held up, aim wherever you like
+const GRAB_RECOVER = 0.16;
+const THROW_SPEED = 15;
+const THROW_COOLDOWN = 0.65;
+const WHIFF_COOLDOWN = 0.3;
+
+const CRUSH_RANGE = 2.5;    // the automatic pair
+const CRUSH_ARC = 1.4;
 const CRUSH_DAMAGE = 58;
-const STRIKE_DAMAGE = 76;
 const CRUSH_DURATION = 0.62;
-const STRIKE_DURATION = 0.44;
 const CRUSH_STRIKE = 0.22;  // when in the animation the squeeze lands
 const CRUSH_COOLDOWN = 0.7;
-const STRIKE_COOLDOWN = 0.24;
 const MAX_GIBS = 140;
 
 export class Game {
@@ -50,6 +55,8 @@ export class Game {
     this.showMap = false;
     this.crush = null;
     this.crushCooldown = 0;
+    this.grab = null;
+    this.grabCooldown = 0;
     this.camera = { x: 0, y: 0, angle: 0, pitch: 0 };
     this.totals = { kills: 0, time: 0, deaths: 0 };
     this.player = this.freshPlayer();
@@ -78,6 +85,8 @@ export class Game {
     this.revealTimer = 0;
     this.crush = null;
     this.crushCooldown = 0;
+    this.grab = null;
+    this.grabCooldown = 0;
     this.showMap = false;
     this.painFlash = 0;
     this.pickupFlash = 0;
@@ -162,7 +171,7 @@ export class Game {
       if (a === self || a.remove) continue;
       if (a.kind === 'prop' && a.alive) {
         if (Math.hypot(a.x - x, a.y - y) < a.radius + 0.2) return true;
-      } else if (a.kind === 'enemy' && a.alive && a !== self) {
+      } else if (a.kind === 'enemy' && a.alive && !a.held && a !== self) {
         if (Math.hypot(a.x - x, a.y - y) < a.radius + 0.22) return true;
       }
     }
@@ -298,25 +307,97 @@ export class Game {
   }
 
   // --- combat --------------------------------------------------------------
-  // The fire button: throw the limbs at whatever is in front. Missing is
-  // allowed - they lash out into empty air and you lose the moment.
-  strike() {
-    const p = this.player;
-    this.crushCooldown = STRIKE_COOLDOWN;
-    const target = this.findVictim(STRIKE_RANGE, STRIKE_ARC);
-    this.crush = {
-      t: 0,
-      target,
-      manual: true,
-      damage: STRIKE_DAMAGE,
-      duration: STRIKE_DURATION,
-      damaged: false,
-      phases: [rand(0, 6), rand(0, 6), rand(0, 6)],
-    };
+  // The fire button: reach out, take hold, and throw. Missing is allowed - the
+  // limbs snap at empty air and you have lost the moment.
+  grabAndThrow() {
+    const target = this.findVictim(GRAB_RANGE, GRAB_ARC);
+    this.grab = { t: 0, phase: 'reach', target, phases: [rand(0, 6), rand(0, 6)] };
     this.audio.play('lash');
-    this.recoil = 2;
     this.alertEnemies(9);
     if (!target) this.shake = Math.max(this.shake, 0.12);
+  }
+
+  updateGrab(dt) {
+    this.grabCooldown -= dt;
+    const g = this.grab;
+    if (!g) return;
+    g.t += dt;
+    const p = this.player;
+
+    if (g.phase === 'reach') {
+      if (g.target && (g.target.remove || !g.target.alive)) g.target = null;
+      if (g.t < GRAB_REACH) return;
+      g.t = 0;
+      if (g.target && p.alive) {
+        g.phase = 'hold';
+        g.target.held = true;
+        g.target.heldZ = 0.15;
+        this.audio.play('grab');
+        this.shake = Math.max(this.shake, 0.3);
+      } else {
+        g.phase = 'recover';
+        this.grabCooldown = WHIFF_COOLDOWN;
+      }
+      return;
+    }
+
+    if (g.phase === 'hold') {
+      const e = g.target;
+      if (!e || e.remove) { g.phase = 'recover'; g.t = 0; return; }
+      // held out at arm's length, so turning while holding aims the throw
+      const k = clamp(g.t / GRAB_HOLD, 0, 1);
+      const dist = 2.3 - 0.3 * k; // hauled in a little as it is wound up
+      e.x = p.x + Math.cos(p.angle) * dist;
+      e.y = p.y + Math.sin(p.angle) * dist;
+      e.heldZ = 0.15 + 0.5 * k;
+      if (!p.alive) { e.held = false; e.heldZ = 0; g.phase = 'recover'; g.t = 0; return; }
+      if (g.t >= GRAB_HOLD) this.throwBody(e);
+      return;
+    }
+
+    if (g.t >= GRAB_RECOVER) {
+      this.grab = null;
+      this.grabCooldown = Math.max(this.grabCooldown, 0);
+    }
+  }
+
+  throwBody(enemy) {
+    const p = this.player;
+    enemy.held = false;
+    enemy.remove = true;
+    enemy.state = 'dead';
+    this.onEnemyKilled(enemy);
+    this.actors.push(new ThrownBody(
+      this, enemy.typeName, enemy.x, enemy.y, enemy.heldZ,
+      Math.cos(p.angle) * THROW_SPEED, Math.sin(p.angle) * THROW_SPEED, 2.2,
+    ));
+    this.audio.play('throw');
+    this.shake = Math.max(this.shake, 0.45);
+    this.grab.phase = 'recover';
+    this.grab.t = 0;
+    this.grab.target = null;
+    this.grabCooldown = THROW_COOLDOWN;
+  }
+
+  // A flying body bowls another monster over: that one dies too.
+  bodyHitsEnemy(body, enemy) {
+    this.killEnemy(enemy);
+    this.shake = Math.max(this.shake, 0.5);
+  }
+
+  // The landing. Whatever was thrown comes apart against the wall or floor.
+  smashBody(body) {
+    this.audio.play('smash', { volume: this.volumeAt(Math.hypot(this.player.x - body.x, this.player.y - body.y)) });
+    this.gibEnemy(body);
+    this.shake = Math.max(this.shake, 0.85);
+  }
+
+  killEnemy(enemy) {
+    if (!enemy.alive) return;
+    enemy.state = 'dead';
+    enemy.remove = true;
+    this.gibEnemy(enemy);
+    this.onEnemyKilled(enemy);
   }
 
   findVictim(range, arc) {
@@ -324,7 +405,8 @@ export class Game {
     let best = null;
     let bestD = range;
     for (const a of this.actors) {
-      if (a.kind !== 'enemy' || !a.alive) continue;
+      if (a.kind !== 'enemy' || !a.alive || a.held) continue;
+      if (this.grab && this.grab.target === a) continue; // already spoken for
       const dx = a.x - p.x;
       const dy = a.y - p.y;
       const d = Math.hypot(dx, dy);
@@ -386,98 +468,125 @@ export class Game {
     if (this.crush) {
       const c = this.crush;
       c.t += dt;
-      if (!c.damaged && c.t >= CRUSH_STRIKE * (c.duration / CRUSH_DURATION)) {
+      if (!c.damaged && c.t >= CRUSH_STRIKE) {
         c.damaged = true;
         const e = c.target;
-        if (e && e.alive) {
+        if (e && e.alive && !e.held) {
           this.audio.play('crush');
-          e.hurt(c.damage);
+          e.hurt(CRUSH_DAMAGE);
           if (e.alive) this.spawnEffect('blood', e.x, e.y, 0.32, 0.7, 0.5);
           this.shake = Math.max(this.shake, 0.7);
         }
       }
-      if (c.t >= c.duration) {
+      if (c.t >= CRUSH_DURATION) {
         this.crush = null;
-        this.crushCooldown = Math.max(this.crushCooldown, c.manual ? STRIKE_COOLDOWN : CRUSH_COOLDOWN);
+        this.crushCooldown = CRUSH_COOLDOWN;
       }
       return;
     }
     if (this.crushCooldown > 0 || !p.alive) return;
 
-    // nothing deliberate happening: grab whatever wandered into reach
+    // a second pair comes out on its own for anything that gets this close
     const victim = this.findVictim(CRUSH_RANGE, CRUSH_ARC);
     if (!victim) return;
     this.crush = {
       t: 0,
       target: victim,
-      manual: false,
-      damage: CRUSH_DAMAGE,
-      duration: CRUSH_DURATION,
       damaged: false,
-      phases: [rand(0, 6), rand(0, 6), rand(0, 6)],
+      phases: [rand(0, 6), rand(0, 6)],
     };
-    this.audio.play('lash');
+    this.audio.play('lash', { volume: 0.7 });
   }
 
-  // The limbs themselves. At rest they sway in the bottom corners; during an
-  // attack they stretch to the target (or to the crosshair on a miss) and
-  // squeeze. Drawn in framebuffer space, over the world.
+  // The limbs. The front pair sways in the bottom corners and does the
+  // grabbing and throwing; the second pair only exists while something is
+  // being torn apart, crawling up from below the view.
   drawLimbs(ctx, w, h) {
     const viewH = h - BAR_H;
     const s = viewH / 232;
     const p = this.player;
-    const c = this.crush;
+    const horizon = Math.round(h * 0.5 + this.camera.pitch);
     const bobX = Math.sin(p.bob * 1.2) * 7 * s;
     const bobY = Math.abs(Math.cos(p.bob * 2.4)) * 6 * s;
 
-    let aim = null;
-    let reach = 0;
-    let squeeze = 0;
-    if (c) {
-      const t = c.t / c.duration;
-      reach = t < 0.32 ? t / 0.32 : (t > 0.68 ? 1 - (t - 0.68) / 0.32 : 1);
-      squeeze = t >= 0.28 && t <= 0.8 ? Math.sin(((t - 0.28) / 0.52) * Math.PI) : 0;
-      const proj = c.target
-        ? this.renderer.projectToScreen(this.camera, c.target.x, c.target.y, 0.45)
+    const toScreen = (actor) => {
+      const proj = actor
+        ? this.renderer.projectToScreen(this.camera, actor.x, actor.y, 0.45 + (actor.heldZ || 0))
         : null;
-      aim = proj
+      return proj
         ? { x: clamp(proj.x, -w * 0.2, w * 1.2), y: clamp(proj.y, 0, viewH) }
-        : { x: w * 0.5, y: Math.round(h * 0.5 + this.camera.pitch) };
+        : { x: w * 0.5, y: horizon };
+    };
+
+    // --- front pair ---
+    const g = this.grab;
+    let aim = null;
+    let ext = 0;
+    let clench = 0;
+    if (g) {
+      aim = toScreen(g.target);
+      if (g.phase === 'reach') ext = clamp(g.t / GRAB_REACH, 0, 1);
+      else if (g.phase === 'hold') { ext = 1; clench = 1; }
+      else ext = clamp(1 - g.t / GRAB_RECOVER, 0, 1);
     }
-
-    const limbs = [
+    const front = [
       { ox: -18 * s, oy: viewH * 1.04, rest: [w * 0.24, viewH * 0.56], bend: -w * 0.17, delay: 0 },
-      { ox: w + 18 * s, oy: viewH * 1.04, rest: [w * 0.76, viewH * 0.56], bend: w * 0.17, delay: 0.05 },
-      { ox: w * 0.5, oy: h + 16, rest: [w * 0.5, h + 30], bend: 0, delay: 0.1 },
+      { ox: w + 18 * s, oy: viewH * 1.04, rest: [w * 0.76, viewH * 0.56], bend: w * 0.17, delay: 0.04 },
     ];
-
-    for (let i = 0; i < limbs.length; i++) {
-      const L = limbs[i];
+    for (let i = 0; i < front.length; i++) {
+      const L = front[i];
       const wave = this.time * 1.7 + i * 2.1;
       const idleX = L.rest[0] + Math.sin(wave) * 11 * s + bobX;
       const idleY = L.rest[1] + Math.cos(wave * 0.8) * 8 * s + bobY;
-      const ext = aim ? clamp(reach - L.delay, 0, 1) : 0;
-      const tipX = idleX + (aim ? (aim.x - idleX) * ext : 0);
-      const tipY = idleY + (aim ? (aim.y - idleY) * ext : 0);
-      if (i === 2 && ext <= 0.05) continue; // the third limb only shows for a strike
+      const e = aim ? clamp(ext - L.delay, 0, 1) : 0;
+      const tipX = idleX + (aim ? (aim.x - idleX) * e : 0);
+      const tipY = idleY + (aim ? (aim.y - idleY) * e : 0);
       tentacle(ctx, {
         x0: L.ox, y0: L.oy,
-        cx: (L.ox + tipX) / 2 + L.bend * (1 - ext * 0.5),
-        cy: (L.oy + tipY) / 2 - viewH * (0.12 + 0.14 * ext + 0.08 * squeeze),
+        cx: (L.ox + tipX) / 2 + L.bend * (1 - e * 0.6),
+        cy: (L.oy + tipY) / 2 - viewH * (0.12 + 0.14 * e),
         x1: tipX, y1: tipY,
-        w0: (38 + squeeze * 6) * s,
-        w1: (13 + squeeze * 7) * s,
+        w0: (38 + clench * 5) * s,
+        w1: (13 + clench * 9) * s,
         wobble: 3.2 * s,
-        phase: (c ? c.phases[i] : i * 2) + this.time * (c ? 10 : 2.4),
+        phase: (g ? g.phases[i] : i * 2) + this.time * (g ? 9 : 2.4),
       });
     }
 
-    if (c && c.damaged && squeeze > 0.3 && c.target) {
+    // --- the pair that tears things apart ---
+    const c = this.crush;
+    if (!c) return;
+    const t = c.t / CRUSH_DURATION;
+    const reach = t < 0.3 ? t / 0.3 : (t > 0.7 ? 1 - (t - 0.7) / 0.3 : 1);
+    const squeeze = t >= 0.26 && t <= 0.82 ? Math.sin(((t - 0.26) / 0.56) * Math.PI) : 0;
+    const target = toScreen(c.target && !c.target.remove ? c.target : null);
+    const pair = [
+      { ox: w * 0.34, oy: h + 18, bend: -w * 0.08 },
+      { ox: w * 0.66, oy: h + 18, bend: w * 0.08 },
+    ];
+    for (let i = 0; i < pair.length; i++) {
+      const L = pair[i];
+      const e = clamp(reach - i * 0.05, 0, 1);
+      if (e <= 0.02) continue;
+      const tipX = L.ox + (target.x - L.ox) * e;
+      const tipY = L.oy + (target.y - L.oy) * e;
+      tentacle(ctx, {
+        x0: L.ox, y0: L.oy,
+        cx: (L.ox + tipX) / 2 + L.bend,
+        cy: (L.oy + tipY) / 2 - viewH * (0.1 + 0.16 * e + 0.08 * squeeze),
+        x1: tipX, y1: tipY,
+        w0: (30 + squeeze * 6) * s,
+        w1: (10 + squeeze * 8) * s,
+        wobble: 3.4 * s,
+        phase: c.phases[i] + this.time * 11,
+      });
+    }
+    if (c.damaged && squeeze > 0.3) {
       ctx.fillStyle = 'rgba(168,18,18,0.85)';
       for (let i = 0; i < 7; i++) {
         const a = (i / 7) * Math.PI * 2 + c.phases[0];
         const r = (10 + squeeze * 18) * s;
-        ctx.fillRect(aim.x + Math.cos(a) * r, aim.y + Math.sin(a) * r * 0.7, 3 * s, 3 * s);
+        ctx.fillRect(target.x + Math.cos(a) * r, target.y + Math.sin(a) * r * 0.7, 3 * s, 3 * s);
       }
     }
   }
@@ -593,7 +702,7 @@ export class Game {
     for (const a of this.actors) {
       if (a.remove) continue;
       if (a.kind === 'prop' && a.alive && Math.hypot(a.x - x, a.y - y) < a.radius + PLAYER_RADIUS) return true;
-      if (a.kind === 'enemy' && a.alive && Math.hypot(a.x - x, a.y - y) < a.radius + PLAYER_RADIUS * 0.7) return true;
+      if (a.kind === 'enemy' && a.alive && !a.held && Math.hypot(a.x - x, a.y - y) < a.radius + PLAYER_RADIUS * 0.7) return true;
     }
     return false;
   }
@@ -708,10 +817,11 @@ export class Game {
 
     this.movePlayer(dt);
 
-    // lashing out
-    if (input.isDown('fire') && !this.crush && this.crushCooldown <= 0 && p.alive) this.strike();
+    // reaching out
+    if (input.isDown('fire') && !this.grab && this.grabCooldown <= 0 && p.alive) this.grabAndThrow();
 
     this.updateDoors(dt);
+    this.updateGrab(dt);
     this.updateCrush(dt);
 
     for (const a of this.actors) a.update(dt);
