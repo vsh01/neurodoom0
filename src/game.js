@@ -5,7 +5,7 @@ import { buildLevel, levelCount } from './levels.js';
 import { T } from './textures.js';
 import { Enemy, Item, Prop, Projectile, Effect } from './entities.js';
 import { Hud } from './hud.js';
-import { WEAPON_SINK } from './weapons.js';
+import { buildWeapons, weaponScaleForView, weaponSink, weaponBobScale } from './weapons.js';
 
 const PLAYER_RADIUS = 0.26;
 const WALK_SPEED = 3.05;
@@ -689,6 +689,14 @@ export class Game {
     const w = r.w;
     const h = r.h;
 
+    // Redraw the gun art whenever the view changes size so it keeps the same
+    // share of the screen on every window shape.
+    const viewH = h - BAR_H;
+    if (this.weaponViewH !== viewH) {
+      this.weapons = buildWeapons(weaponScaleForView(viewH));
+      this.weaponViewH = viewH;
+    }
+
     r.renderWorld(this.level, this.camera, this.buildSprites(), this.lightBoost);
 
     // weapon
@@ -697,10 +705,11 @@ export class Game {
       const weapon = this.weapons[p.weapon];
       const frameIdx = this.weaponAnim ? this.weaponAnim.seq[this.weaponAnim.i][0] : 0;
       const img = weapon.frames[frameIdx] || weapon.frames[0];
-      const bobX = Math.sin(p.bob * 1.2) * 7;
-      const bobY = Math.abs(Math.cos(p.bob * 2.4)) * 5;
+      const bob = weaponBobScale();
+      const bobX = Math.sin(p.bob * 1.2) * 9 * bob;
+      const bobY = Math.abs(Math.cos(p.bob * 2.4)) * 6 * bob;
       const x = Math.round(w / 2 - img.width / 2 + bobX);
-      const y = Math.round(h - BAR_H - img.height + WEAPON_SINK + bobY + this.recoil * 0.8);
+      const y = Math.round(h - BAR_H - img.height + weaponSink() + bobY + this.recoil * 0.8);
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(img, x, y);
     }

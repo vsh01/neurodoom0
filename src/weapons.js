@@ -3,12 +3,32 @@
 
 import { makeCanvas, TAU } from './util.js';
 
-// Guns are authored on a 200x150 grid and drawn at SCALE so they fill a
-// satisfying chunk of the screen. The bottom ~17px sit behind the status bar.
+// Guns are authored on a 200x150 grid and rasterised at whatever scale the
+// current view calls for, so the weapon always covers about the same slice of
+// the screen instead of a fixed number of framebuffer pixels. The bottom ~9%
+// of the sprite sits behind the status bar.
 const GW = 200;
 const GH = 150;
-const SCALE = 1.2;
-export const WEAPON_SINK = Math.round(14 * SCALE);
+const VIEW_FRACTION = 0.58; // of the 3D view height, before the bit that sinks
+
+// Set by buildWeapons() right before the frames are drawn.
+let SCALE = 0.7;
+
+// Scale that makes a gun cover VIEW_FRACTION of a view this tall.
+export function weaponScaleForView(viewHeight) {
+  const s = (viewHeight * VIEW_FRACTION) / GH;
+  return Math.max(0.34, Math.min(1.5, s));
+}
+
+// How far the grip hides behind the status bar, in framebuffer pixels.
+export function weaponSink() {
+  return Math.round(GH * SCALE * 0.09);
+}
+
+// Bob amplitude should shrink with the gun.
+export function weaponBobScale() {
+  return SCALE;
+}
 
 function frame(draw) {
   const { canvas, ctx } = makeCanvas(Math.round(GW * SCALE), Math.round(GH * SCALE));
@@ -162,7 +182,7 @@ function shotgun(kick, fired, pump) {
     ctx.fillRect(cx - 12, 130, 22, 6);
     ctx.restore();
     hand(ctx, cx - 40, 100 + pump, 32, 40, true);
-    hand(ctx, cx + 6, 124, 32, 34, false);
+    hand(ctx, cx + 4, 116, 32, 34, false);
     if (fired) {
       const [fx, fy] = rotPoint(cx, 150, cx, 24, ang);
       flash(ctx, fx, fy, 1.05);
@@ -202,8 +222,10 @@ function chaingun(kick, fired, spin) {
   });
 }
 
-// Frame lists are built once at boot; `fireSeq` is [frameIndex, seconds].
-export function buildWeapons() {
+// Frame lists are rebuilt whenever the view size changes; `fireSeq` entries
+// are [frameIndex, seconds].
+export function buildWeapons(scale) {
+  if (scale) SCALE = scale;
   return [
     {
       id: 'pistol',
