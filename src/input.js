@@ -8,7 +8,6 @@ const KEYMAP = {
   ShiftLeft: 'run', ShiftRight: 'run',
   Space: 'use', KeyE: 'use', KeyF: 'use', Enter: 'use',
   ControlLeft: 'fire', ControlRight: 'fire',
-  Digit1: 'weapon1', Digit2: 'weapon2', Digit3: 'weapon3',
   Tab: 'map', KeyM: 'music', KeyP: 'pause', Escape: 'pause',
   KeyR: 'restart',
 };
@@ -140,7 +139,7 @@ export class Input {
     c.addEventListener('touchend', onEnd, { passive: true });
     c.addEventListener('touchcancel', onEnd, { passive: true });
 
-    for (const [id, action] of [['btn-fire', 'fire'], ['btn-use', 'use'], ['btn-weapon', 'nextWeapon']]) {
+    for (const [id, action] of [['btn-fire', 'fire'], ['btn-use', 'use']]) {
       const el = document.getElementById(id);
       if (!el) continue;
       el.addEventListener('touchstart', (e) => { e.preventDefault(); this.touchActive = true; this._press(action); }, { passive: false });

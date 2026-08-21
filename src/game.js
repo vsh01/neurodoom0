@@ -1,35 +1,40 @@
-// Game rules: player, weapons, doors, pickups, combat and the frame loop.
+// Game rules: the player (a thing made of tentacles), doors, pickups,
+// the strike/crush attack and the frame loop.
 
 import { clamp, rand, randInt, angleDiff } from './util.js';
 import { buildLevel, levelCount } from './levels.js';
 import { T } from './textures.js';
-import { Enemy, Item, Prop, Projectile, Effect } from './entities.js';
+import { Enemy, Item, Prop, Projectile, Effect, Gib } from './entities.js';
 import { Hud } from './hud.js';
-import { buildWeapons, weaponScaleForView, weaponSink, weaponBobScale } from './weapons.js';
 import { tentacle } from './tentacles.js';
 
 const PLAYER_RADIUS = 0.26;
-const WALK_SPEED = 3.05;
-const RUN_SPEED = 5.35;
-const AMMO_MAX = { bullets: 220, shells: 60 };
+const WALK_SPEED = 3.4;
+const RUN_SPEED = 6.0;
 const BAR_H = 38;
 
-// The crush: anything that walks into arm's reach gets taken apart by the
-// spare tentacles. No button - being the monster is the point.
-const CRUSH_RANGE = 2.5;
+// You have no guns. You have tentacles: they take hold of anything that walks
+// into reach on their own, and the fire button throws them a little further at
+// whatever you are looking at. Either way the target comes apart.
+const CRUSH_RANGE = 2.5;    // automatic grab
+const STRIKE_RANGE = 3.6;   // deliberate lash on the fire button
 const CRUSH_ARC = 1.4;      // radians either side of where you are looking
+const STRIKE_ARC = 1.0;
 const CRUSH_DAMAGE = 58;
+const STRIKE_DAMAGE = 76;
 const CRUSH_DURATION = 0.62;
-const CRUSH_STRIKE = 0.24;  // when in the animation the squeeze lands
+const STRIKE_DURATION = 0.44;
+const CRUSH_STRIKE = 0.22;  // when in the animation the squeeze lands
 const CRUSH_COOLDOWN = 0.7;
+const STRIKE_COOLDOWN = 0.24;
+const MAX_GIBS = 140;
 
 export class Game {
-  constructor({ renderer, art, audio, input, weapons }) {
+  constructor({ renderer, art, audio, input }) {
     this.renderer = renderer;
     this.art = art;
     this.audio = audio;
     this.input = input;
-    this.weapons = weapons;
     this.hud = new Hud();
     this.state = 'title';
     this.time = 0;
@@ -45,7 +50,6 @@ export class Game {
     this.showMap = false;
     this.crush = null;
     this.crushCooldown = 0;
-    this.fireSide = 'right';
     this.camera = { x: 0, y: 0, angle: 0, pitch: 0 };
     this.totals = { kills: 0, time: 0, deaths: 0 };
     this.player = this.freshPlayer();
@@ -57,9 +61,6 @@ export class Game {
     return {
       x: 0, y: 0, angle: 0,
       health: 100, armor: 0,
-      weapon: 0,
-      hasWeapon: [true, false, false],
-      ammo: { bullets: 50, shells: 0 },
       keys: { red: false },
       alive: true,
       bob: 0,
@@ -75,8 +76,6 @@ export class Game {
     this.stats = { kills: 0, totalKills: 0, items: 0, totalItems: 0, time: 0 };
     this.explored = new Uint8Array(this.level.w * this.level.h);
     this.revealTimer = 0;
-    this.weaponAnim = null;
-    this.fireCooldown = 0;
     this.crush = null;
     this.crushCooldown = 0;
     this.showMap = false;
@@ -124,8 +123,6 @@ export class Game {
     const p = this.player;
     p.health = 100;
     p.armor = 0;
-    p.ammo.bullets = Math.max(p.ammo.bullets, 50);
-    if (p.hasWeapon[1]) p.ammo.shells = Math.max(p.ammo.shells, 8);
     this.loadLevel(this.levelIndex, true);
     this.state = 'playing';
   }
@@ -301,61 +298,62 @@ export class Game {
   }
 
   // --- combat --------------------------------------------------------------
-  fire() {
+  // The fire button: throw the limbs at whatever is in front. Missing is
+  // allowed - they lash out into empty air and you lose the moment.
+  strike() {
     const p = this.player;
-    const w = this.weapons[p.weapon];
-    if (p.ammo[w.ammo] < w.ammoUse) {
-      this.audio.play('noammo');
-      this.fireCooldown = 0.25;
-      return;
-    }
-    p.ammo[w.ammo] -= w.ammoUse;
-    this.fireCooldown = w.cooldown;
-    this.fireSide = this.fireSide === 'right' ? 'left' : 'right';
-    this.weaponAnim = { seq: w.fireSeq, i: 0, t: w.fireSeq[0][1], side: this.fireSide };
-    this.audio.play(w.sound);
-    this.lightBoost = 7;
-    this.recoil = w.id === 'shotgun' ? 5 : 3;
-    this.shake = Math.max(this.shake, w.id === 'shotgun' ? 0.5 : 0.22);
-
-    for (let i = 0; i < w.pellets; i++) {
-      const spread = (Math.random() * 2 - 1) * w.spread;
-      this.hitscan(p.angle + spread, w.range, w.damage[0], w.damage[1]);
-    }
-    this.alertEnemies(11);
+    this.crushCooldown = STRIKE_COOLDOWN;
+    const target = this.findVictim(STRIKE_RANGE, STRIKE_ARC);
+    this.crush = {
+      t: 0,
+      target,
+      manual: true,
+      damage: STRIKE_DAMAGE,
+      duration: STRIKE_DURATION,
+      damaged: false,
+      phases: [rand(0, 6), rand(0, 6), rand(0, 6)],
+    };
+    this.audio.play('lash');
+    this.recoil = 2;
+    this.alertEnemies(9);
+    if (!target) this.shake = Math.max(this.shake, 0.12);
   }
 
-  hitscan(angle, range, dmgMin, dmgMax) {
+  findVictim(range, arc) {
     const p = this.player;
-    const dx = Math.cos(angle);
-    const dy = Math.sin(angle);
-    const wallDist = this.castRay(p.x, p.y, dx, dy, range);
     let best = null;
-    let bestT = wallDist;
+    let bestD = range;
     for (const a of this.actors) {
-      const isTarget = (a.kind === 'enemy' && a.alive) ||
-        (a.kind === 'prop' && a.typeName === 'barrel' && a.alive);
-      if (!isTarget) continue;
-      const rx = a.x - p.x;
-      const ry = a.y - p.y;
-      const t = rx * dx + ry * dy;
-      if (t <= 0.25 || t >= bestT) continue;
-      const perp = Math.abs(rx * dy - ry * dx);
-      if (perp < (a.radius || 0.32) + 0.12) { bestT = t; best = a; }
+      if (a.kind !== 'enemy' || !a.alive) continue;
+      const dx = a.x - p.x;
+      const dy = a.y - p.y;
+      const d = Math.hypot(dx, dy);
+      if (d > bestD) continue;
+      if (Math.abs(angleDiff(p.angle, Math.atan2(dy, dx))) > arc) continue;
+      if (!this.canSee(p.x, p.y, a.x, a.y)) continue; // no reaching through walls
+      bestD = d;
+      best = a;
     }
-    const hx = p.x + dx * bestT;
-    const hy = p.y + dy * bestT;
-    if (best) {
-      const dmg = randInt(dmgMin, dmgMax);
-      best.hurt(dmg);
-      if (best.kind === 'enemy') {
-        this.spawnEffect('blood', hx, hy, 0.24, 0.42, 0.55);
-        this.audio.play('flesh', { volume: this.volumeAt(bestT) * 0.7 });
-      }
-    } else {
-      this.spawnEffect('spark', hx - dx * 0.05, hy - dy * 0.05, 0.18, 0.3, 0.5);
-      this.audio.play('impact', { volume: this.volumeAt(bestT) * 0.5 });
+    return best;
+  }
+
+  // Tearing something apart: chunks of it fly out of the grip and land nearby.
+  gibEnemy(enemy) {
+    this.audio.play('gib', { volume: this.volumeAt(Math.hypot(this.player.x - enemy.x, this.player.y - enemy.y)) });
+    const count = enemy.typeName === 'demon' ? 13 : 9;
+    let gibs = 0;
+    for (const a of this.actors) if (a.kind === 'gib') gibs++;
+    for (let i = 0; i < count; i++) {
+      if (gibs++ > MAX_GIBS) break;
+      const a = rand(0, Math.PI * 2);
+      const speed = rand(0.8, 4.2);
+      this.actors.push(new Gib(
+        this, enemy.typeName, enemy.x, enemy.y, rand(0.3, 0.8),
+        Math.cos(a) * speed, Math.sin(a) * speed, rand(1.6, 5),
+      ));
     }
+    this.spawnEffect('blood', enemy.x, enemy.y, 0.36, 1.1, 0.5);
+    this.spawnEffect('blood', enemy.x + rand(-0.3, 0.3), enemy.y + rand(-0.3, 0.3), 0.3, 0.7, 0.75);
   }
 
   alertEnemies(radius) {
@@ -388,88 +386,98 @@ export class Game {
     if (this.crush) {
       const c = this.crush;
       c.t += dt;
-      if (!c.damaged && c.t >= CRUSH_STRIKE) {
+      if (!c.damaged && c.t >= CRUSH_STRIKE * (c.duration / CRUSH_DURATION)) {
         c.damaged = true;
         const e = c.target;
         if (e && e.alive) {
           this.audio.play('crush');
-          e.hurt(CRUSH_DAMAGE);
-          this.spawnEffect('blood', e.x, e.y, 0.32, 0.7, 0.5);
+          e.hurt(c.damage);
+          if (e.alive) this.spawnEffect('blood', e.x, e.y, 0.32, 0.7, 0.5);
           this.shake = Math.max(this.shake, 0.7);
         }
       }
-      if (c.t >= CRUSH_DURATION) {
+      if (c.t >= c.duration) {
         this.crush = null;
-        this.crushCooldown = CRUSH_COOLDOWN;
+        this.crushCooldown = Math.max(this.crushCooldown, c.manual ? STRIKE_COOLDOWN : CRUSH_COOLDOWN);
       }
       return;
     }
     if (this.crushCooldown > 0 || !p.alive) return;
 
-    let best = null;
-    let bestD = CRUSH_RANGE;
-    for (const a of this.actors) {
-      if (a.kind !== 'enemy' || !a.alive) continue;
-      const dx = a.x - p.x;
-      const dy = a.y - p.y;
-      const d = Math.hypot(dx, dy);
-      if (d > bestD) continue;
-      if (Math.abs(angleDiff(p.angle, Math.atan2(dy, dx))) > CRUSH_ARC) continue;
-      if (!this.canSee(p.x, p.y, a.x, a.y)) continue; // no reaching through walls
-      bestD = d;
-      best = a;
-    }
-    if (!best) return;
+    // nothing deliberate happening: grab whatever wandered into reach
+    const victim = this.findVictim(CRUSH_RANGE, CRUSH_ARC);
+    if (!victim) return;
     this.crush = {
       t: 0,
-      target: best,
+      target: victim,
+      manual: false,
+      damage: CRUSH_DAMAGE,
+      duration: CRUSH_DURATION,
       damaged: false,
       phases: [rand(0, 6), rand(0, 6), rand(0, 6)],
     };
     this.audio.play('lash');
   }
 
-  // Tentacles lash out of the bottom corners, converge on whatever is being
-  // crushed, and squeeze. Drawn in framebuffer space over the world.
-  drawCrush(ctx, w, h) {
-    const c = this.crush;
+  // The limbs themselves. At rest they sway in the bottom corners; during an
+  // attack they stretch to the target (or to the crosshair on a miss) and
+  // squeeze. Drawn in framebuffer space, over the world.
+  drawLimbs(ctx, w, h) {
     const viewH = h - BAR_H;
-    const proj = this.renderer.projectToScreen(this.camera, c.target.x, c.target.y, 0.45);
-    const tx = proj ? clamp(proj.x, -w * 0.2, w * 1.2) : w * 0.5;
-    const ty = proj ? clamp(proj.y, 0, viewH) : viewH * 0.5;
     const s = viewH / 232;
-    const p = c.t / CRUSH_DURATION;
-    const reach = p < 0.34 ? p / 0.34 : (p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1);
-    const squeeze = p >= 0.3 && p <= 0.78 ? Math.sin(((p - 0.3) / 0.48) * Math.PI) : 0;
-    const origins = [
-      [-14 * s, viewH * 0.98],
-      [w + 14 * s, viewH * 0.98],
-      [w * 0.5, h + 12],
+    const p = this.player;
+    const c = this.crush;
+    const bobX = Math.sin(p.bob * 1.2) * 7 * s;
+    const bobY = Math.abs(Math.cos(p.bob * 2.4)) * 6 * s;
+
+    let aim = null;
+    let reach = 0;
+    let squeeze = 0;
+    if (c) {
+      const t = c.t / c.duration;
+      reach = t < 0.32 ? t / 0.32 : (t > 0.68 ? 1 - (t - 0.68) / 0.32 : 1);
+      squeeze = t >= 0.28 && t <= 0.8 ? Math.sin(((t - 0.28) / 0.52) * Math.PI) : 0;
+      const proj = c.target
+        ? this.renderer.projectToScreen(this.camera, c.target.x, c.target.y, 0.45)
+        : null;
+      aim = proj
+        ? { x: clamp(proj.x, -w * 0.2, w * 1.2), y: clamp(proj.y, 0, viewH) }
+        : { x: w * 0.5, y: Math.round(h * 0.5 + this.camera.pitch) };
+    }
+
+    const limbs = [
+      { ox: -18 * s, oy: viewH * 1.04, rest: [w * 0.24, viewH * 0.56], bend: -w * 0.17, delay: 0 },
+      { ox: w + 18 * s, oy: viewH * 1.04, rest: [w * 0.76, viewH * 0.56], bend: w * 0.17, delay: 0.05 },
+      { ox: w * 0.5, oy: h + 16, rest: [w * 0.5, h + 30], bend: 0, delay: 0.1 },
     ];
-    for (let i = 0; i < origins.length; i++) {
-      const ext = clamp(reach - i * 0.05, 0, 1);
-      if (ext <= 0.02) continue;
-      const [ox, oy] = origins[i];
-      const ex = ox + (tx - ox) * ext;
-      const ey = oy + (ty - oy) * ext;
-      const bend = (i - 1) * w * 0.13;
+
+    for (let i = 0; i < limbs.length; i++) {
+      const L = limbs[i];
+      const wave = this.time * 1.7 + i * 2.1;
+      const idleX = L.rest[0] + Math.sin(wave) * 11 * s + bobX;
+      const idleY = L.rest[1] + Math.cos(wave * 0.8) * 8 * s + bobY;
+      const ext = aim ? clamp(reach - L.delay, 0, 1) : 0;
+      const tipX = idleX + (aim ? (aim.x - idleX) * ext : 0);
+      const tipY = idleY + (aim ? (aim.y - idleY) * ext : 0);
+      if (i === 2 && ext <= 0.05) continue; // the third limb only shows for a strike
       tentacle(ctx, {
-        x0: ox, y0: oy,
-        cx: (ox + tx) / 2 + bend, cy: (oy + ty) / 2 - viewH * (0.18 + 0.1 * squeeze),
-        x1: ex, y1: ey,
-        w0: (30 + squeeze * 6) * s,
-        w1: (9 + squeeze * 7) * s,
-        wobble: 3.5 * s,
-        phase: c.phases[i] + this.time * 10,
+        x0: L.ox, y0: L.oy,
+        cx: (L.ox + tipX) / 2 + L.bend * (1 - ext * 0.5),
+        cy: (L.oy + tipY) / 2 - viewH * (0.12 + 0.14 * ext + 0.08 * squeeze),
+        x1: tipX, y1: tipY,
+        w0: (38 + squeeze * 6) * s,
+        w1: (13 + squeeze * 7) * s,
+        wobble: 3.2 * s,
+        phase: (c ? c.phases[i] : i * 2) + this.time * (c ? 10 : 2.4),
       });
     }
-    if (squeeze > 0.35 && c.damaged) {
-      // gore squirting out of the grip
+
+    if (c && c.damaged && squeeze > 0.3 && c.target) {
       ctx.fillStyle = 'rgba(168,18,18,0.85)';
       for (let i = 0; i < 7; i++) {
         const a = (i / 7) * Math.PI * 2 + c.phases[0];
-        const r = (10 + squeeze * 16) * s;
-        ctx.fillRect(tx + Math.cos(a) * r, ty + Math.sin(a) * r * 0.7, 3 * s, 3 * s);
+        const r = (10 + squeeze * 18) * s;
+        ctx.fillRect(aim.x + Math.cos(a) * r, aim.y + Math.sin(a) * r * 0.7, 3 * s, 3 * s);
       }
     }
   }
@@ -512,24 +520,6 @@ export class Game {
       if (p.health < 100) { p.health = Math.min(100, p.health + t.amount); took = true; }
     } else if (t.give === 'armor') {
       if (p.armor < 100) { p.armor = Math.min(100, p.armor + t.amount); took = true; }
-    } else if (t.give === 'bullets' || t.give === 'shells') {
-      const key = t.give;
-      if (p.ammo[key] < AMMO_MAX[key]) {
-        p.ammo[key] = Math.min(AMMO_MAX[key], p.ammo[key] + t.amount);
-        took = true;
-      }
-    } else if (t.give === 'weapon') {
-      const w = this.weapons[t.weapon];
-      const ammoFull = p.ammo[w.ammo] >= AMMO_MAX[w.ammo];
-      if (!p.hasWeapon[t.weapon]) {
-        p.hasWeapon[t.weapon] = true;
-        p.weapon = t.weapon;
-        this.weaponAnim = null;
-        took = true;
-      } else if (!ammoFull) {
-        took = true;
-      }
-      if (took) p.ammo[w.ammo] = Math.min(AMMO_MAX[w.ammo], p.ammo[w.ammo] + t.amount);
     } else if (t.give === 'key') {
       p.keys.red = true;
       took = true;
@@ -707,21 +697,7 @@ export class Game {
     }
     if (input.wasPressed('map')) this.showMap = !this.showMap;
 
-    // weapon selection
-    for (let i = 0; i < 3; i++) {
-      if (input.wasPressed(`weapon${i + 1}`) && this.player.hasWeapon[i]) {
-        this.player.weapon = i;
-        this.weaponAnim = null;
-      }
-    }
-    const wheel = input.takeWheel();
-    if (wheel || input.wasPressed('nextWeapon')) {
-      const dir = wheel > 0 ? -1 : 1;
-      for (let n = 1; n <= 3; n++) {
-        const idx = (this.player.weapon + dir * n + 3) % 3;
-        if (this.player.hasWeapon[idx]) { this.player.weapon = idx; this.weaponAnim = null; break; }
-      }
-    }
+    input.takeWheel();
 
     // look
     const p = this.player;
@@ -732,21 +708,8 @@ export class Game {
 
     this.movePlayer(dt);
 
-    // shooting
-    this.fireCooldown -= dt;
-    const weapon = this.weapons[p.weapon];
-    const wantFire = weapon.auto ? input.isDown('fire') : input.wasPressed('fire');
-    if (wantFire && this.fireCooldown <= 0 && p.alive) this.fire();
-
-    if (this.weaponAnim) {
-      const anim = this.weaponAnim;
-      anim.t -= dt;
-      while (anim.t <= 0 && anim.i < anim.seq.length - 1) {
-        anim.i++;
-        anim.t += anim.seq[anim.i][1];
-        if (anim.seq[anim.i][1] === 0) { this.weaponAnim = null; break; }
-      }
-    }
+    // lashing out
+    if (input.isDown('fire') && !this.crush && this.crushCooldown <= 0 && p.alive) this.strike();
 
     this.updateDoors(dt);
     this.updateCrush(dt);
@@ -798,38 +761,9 @@ export class Game {
     const w = r.w;
     const h = r.h;
 
-    // Redraw the gun art whenever the view changes size so it keeps the same
-    // share of the screen on every window shape.
-    const viewH = h - BAR_H;
-    if (this.weaponViewH !== viewH) {
-      this.weapons = buildWeapons(weaponScaleForView(viewH));
-      this.weaponViewH = viewH;
-    }
-
     r.renderWorld(this.level, this.camera, this.buildSprites(), this.lightBoost);
 
-    // the pair of guns, one gripped in each bottom corner
-    if (this.state === 'playing' || this.state === 'paused') {
-      const p = this.player;
-      const weapon = this.weapons[p.weapon];
-      const anim = this.weaponAnim;
-      const firingFrame = anim ? anim.seq[anim.i][0] : 0;
-      const bob = weaponBobScale();
-      const bobX = Math.sin(p.bob * 1.2) * 8 * bob;
-      const bobY = Math.abs(Math.cos(p.bob * 2.4)) * 6 * bob;
-      ctx.imageSmoothingEnabled = false;
-      for (const side of ['left', 'right']) {
-        const firing = !!anim && anim.side === side;
-        const set = weapon.frames[firing ? firingFrame : 0] || weapon.frames[0];
-        const img = set[side];
-        const dir = side === 'left' ? -1 : 1;
-        const kick = firing ? this.recoil * 0.9 : 0;
-        const x = Math.round(side === 'left' ? bobX * dir : w - img.width + bobX * dir);
-        const y = Math.round(h - BAR_H - img.height + weaponSink() + bobY + kick);
-        ctx.drawImage(img, x, y);
-      }
-      if (this.crush) this.drawCrush(ctx, w, h);
-    }
+    if (this.state === 'playing' || this.state === 'paused') this.drawLimbs(ctx, w, h);
 
     this.hud.draw(ctx, w, h, this);
 

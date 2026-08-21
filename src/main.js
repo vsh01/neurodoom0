@@ -3,7 +3,6 @@
 
 import { buildTextures } from './textures.js';
 import { buildSprites } from './sprites.js';
-import { buildWeapons } from './weapons.js';
 import { Renderer } from './renderer.js';
 import { AudioEngine } from './audio.js';
 import { Input } from './input.js';
@@ -37,17 +36,13 @@ async function boot() {
   await nextFrame();
   const art = buildSprites();
 
-  setLoading('LOADING ARSENAL...');
-  await nextFrame();
-  const weapons = buildWeapons();
-
   setLoading('ENTERING HELL...');
   await nextFrame();
 
   const renderer = new Renderer(canvas, textures);
   const audio = new AudioEngine();
   const input = new Input(canvas);
-  const game = new Game({ renderer, art, audio, input, weapons });
+  const game = new Game({ renderer, art, audio, input });
   fitCanvas(renderer);
 
   if (loading) loading.style.display = 'none';

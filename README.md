@@ -1,15 +1,15 @@
 # NEURODOOM
 
-A DOOM-style raycasting first-person shooter that runs in a browser tab, where
-you play the thing with the tentacles: two guns held out at the edges of the
-view, and spare limbs that lash out and crush anything that walks into reach.
-No engine, no framework, no build step, **no asset files at all** - every wall
-texture, monster sprite, weapon, sound effect and the music are generated in
+A DOOM-style raycaster that runs in a browser tab, except you are the monster
+and there are no guns. You are a black mass of tentacles: two of them frame the
+view, and they lash out to take hold of anything in front of you and tear it
+into pieces. No engine, no framework, no build step, **no asset files at all** -
+every wall texture, monster sprite, sound effect and the music are generated in
 JavaScript when the page loads.
 
 **Play it: https://vsh01.github.io/neurodoom0/**
 
-![three levels, three weapons, no assets](https://img.shields.io/badge/levels-3-red)
+![three levels, no guns](https://img.shields.io/badge/levels-3-red)
 ![vanilla js](https://img.shields.io/badge/dependencies-0-brightgreen)
 
 ## Controls
@@ -18,32 +18,36 @@ JavaScript when the page loads.
 | --- | --- |
 | Move / strafe | `W` `A` `S` `D` |
 | Turn | mouse, or `←` `→` |
-| Fire (guns alternate) | left mouse button, or `Ctrl` |
-| Crush | automatic - anything that gets within reach in front of you |
+| Lash out | left mouse button, or `Ctrl` |
+| Crush | automatic - anything that walks into reach in front of you |
 | Open doors, press switches | `E`, `Space` or right mouse button |
 | Run | `Shift` |
-| Weapons | `1` pistol, `2` shotgun, `3` chaingun, or mouse wheel |
 | Automap | `Tab` |
 | Pause | `P` or `Esc` |
 | Restart the level | `R` |
 | Music on/off | `M` |
 
 On phones and tablets: drag on the left half of the screen to move, drag on the
-right half to look, tap to shoot, and use the `FIRE` / `USE` / `WPN` buttons.
+right half to look, tap to strike, and use the `FIRE` / `USE` buttons.
 
 ## The game
 
 Three levels - *Hangar Zero*, *Toxin Refinery* and *Hell's Gate*. Each one is
 locked behind a red keycard and ends at an exit switch you have to find and
-press. Health, armour and ammo carry over between levels.
+press. Health and armour carry over between levels.
 
-- **Three weapons, held in pairs.** Pistol, pump shotgun (8 pellets per shell)
-  and a chaingun. Each gun is gripped by a tentacle at its side of the screen
-  and they fire alternately.
-- **The crush.** Get a monster within about two and a half squares in front of
-  you and the spare tentacles whip out of the bottom corners, take hold and
-  squeeze for 58 damage - enough to fold a former human in one go. It fires on
-  its own, on a cooldown, and will not reach through walls.
+- **One weapon: you.** The fire button throws the tentacles at whatever you are
+  looking at, up to 3.6 squares away, for 76 damage - a former human comes apart
+  in one grab, a demon in two. Miss and they snap at empty air and you have lost
+  the moment.
+- **The crush.** Anything that gets within 2.5 squares in front of you is taken
+  hold of automatically, for 58 damage, on a cooldown. Neither reach goes
+  through walls.
+- **Everything comes apart.** There are no corpses: whatever kills a monster
+  scatters a dozen chunks of it, which bounce off the walls and stay on the
+  floor for the rest of the level.
+- Health, armour and the red keycard are the only pickups now - there is no
+  ammunition to find, so the whole level is spent closing distance.
 - **Three monsters.** Former humans shoot back, hellspawn lob fireballs, and
   demons close the distance fast and bite. All of them wake on sight or gunfire,
   flinch when hurt, and open doors to reach you.
@@ -64,11 +68,10 @@ point-scaled to the display canvas.
 | `src/renderer.js` | Floor/ceiling casting, DDA wall casting with sliding doors, z-buffered billboard sprites |
 | `src/textures.js` | Procedural 64x64 wall and flat textures (brick, tech panels, blood, doors, hazard supports) |
 | `src/sprites.js` | Procedural monster, pickup, prop and effect sprites drawn on an off-screen canvas |
-| `src/weapons.js` | First-person weapon art (both mirrored halves) and weapon stats |
-| `src/tentacles.js` | Tapered-bezier tentacle ribbons for the grips and the crush |
-| `src/entities.js` | Monster AI, pickups, barrels, projectiles, effects |
+| `src/tentacles.js` | Tapered-bezier tentacle ribbons - the limbs at rest and mid-strike |
+| `src/entities.js` | Monster AI, pickups, barrels, projectiles, gibs, effects |
 | `src/levels.js` | ASCII level maps compiled into typed arrays |
-| `src/game.js` | Player, combat, doors, keys, scoring, frame update |
+| `src/game.js` | Player, the strike and crush attacks, doors, keys, scoring, frame update |
 | `src/hud.js` | Status bar, messages, automap, menu screens |
 | `src/audio.js` | Web Audio synthesis for every sound effect plus a 16-step music loop |
 | `src/input.js` | Keyboard, pointer-lock mouse look, touch controls |
@@ -114,14 +117,19 @@ generated art here are MIT licensed - see [LICENSE](LICENSE).
 ## По-русски
 
 NEURODOOM - шутер от первого лица в стиле DOOM, который работает прямо в
-браузере. Ни одного файла с ресурсами: все текстуры, спрайты монстров, оружие,
-звуки и музыка генерируются кодом при загрузке страницы.
+браузере. Ни одного файла с ресурсами: все текстуры, спрайты монстров, звуки и
+музыка генерируются кодом при загрузке страницы.
 
 Играть: **https://vsh01.github.io/neurodoom0/**
 
-Управление: `WASD` - движение, мышь - обзор, левая кнопка - огонь, `E` или
-пробел - открыть дверь / нажать рубильник, `Shift` - бег, `1` `2` `3` - оружие,
-`Tab` - карта, `P` - пауза, `R` - перезапуск уровня, `M` - музыка.
+Оружия нет: вы играете за чёрную тварь с тентаклями. Левая кнопка - удар
+щупальцами по тому, на что смотрите (до 3.6 клетки), всё, что подходит ближе
+2.5 клетки, щупальца хватают сами. Жертву разрывает на куски, которые остаются
+лежать на полу.
 
-Три уровня, три вида монстров, три ствола, взрывающиеся бочки, красная
-ключ-карта и рубильник выхода на каждом уровне.
+Управление: `WASD` - движение, мышь - обзор, левая кнопка - удар, `E` или
+пробел - открыть дверь / нажать рубильник, `Shift` - бег, `Tab` - карта,
+`P` - пауза, `R` - перезапуск уровня, `M` - музыка.
+
+Три уровня, три вида монстров, взрывающиеся бочки, красная ключ-карта и
+рубильник выхода на каждом уровне.

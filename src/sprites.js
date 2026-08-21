@@ -224,34 +224,54 @@ function drawDemon(ctx, w, h, o) {
   if (o.pain) tint(ctx, w, h, '#e01414', 0.4);
 }
 
-function deathFrames(w, h, draw, blood = '#7d0d0d') {
-  const steps = [0.16, 0.42, 0.68, 0.88, 1];
-  return steps.map((t) => S(w, h, (ctx) => {
-    ctx.globalAlpha = 0.9;
-    const pw = w * (0.25 + 0.55 * t);
-    const ph = 3 + 6 * t;
-    ellipse(ctx, w / 2, h - ph / 2 - 1, pw / 2, ph / 2, blood);
-    ctx.globalAlpha = 1;
-    ctx.save();
-    ctx.translate(w / 2, h);
-    ctx.scale(1 + t * 0.55, Math.max(0.14, 1 - t * 0.88));
-    ctx.rotate(t * 0.22);
-    ctx.translate(-w / 2, -h);
-    draw(ctx, w, h, { phase: 0.5, attack: false, pain: false });
-    ctx.restore();
-    tint(ctx, w, h, '#6b0c0c', 0.16 + 0.34 * t);
-  }));
-}
-
-function enemySet(w, h, draw, blood) {
+function enemySet(w, h, draw) {
   const walk = [0, 0.25, 0.5, 0.75].map((phase) =>
     S(w, h, (ctx, cw, ch) => draw(ctx, cw, ch, { phase, attack: false, pain: false })));
   return {
     walk,
     attack: [S(w, h, (ctx, cw, ch) => draw(ctx, cw, ch, { phase: 0, attack: true, pain: false }))],
     pain: [S(w, h, (ctx, cw, ch) => draw(ctx, cw, ch, { phase: 0, attack: false, pain: true }))],
-    die: deathFrames(w, h, draw, blood),
   };
+}
+
+// --- gibs ----------------------------------------------------------------
+// What is left of something after the tentacles have finished with it.
+function gibChunk(size, rng, flesh, dark, cloth) {
+  return S(size, size, (ctx, w, h) => {
+    const points = 7;
+    ctx.beginPath();
+    for (let i = 0; i < points; i++) {
+      const a = (i / points) * TAU + rng() * 0.3;
+      const r = size * (0.26 + rng() * 0.18);
+      const x = w / 2 + Math.cos(a) * r;
+      const y = h / 2 + Math.sin(a) * r * 0.86;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = flesh;
+    ctx.fill();
+    ctx.strokeStyle = dark;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    if (cloth && rng() > 0.5) {
+      ctx.fillStyle = cloth;
+      ctx.fillRect(w / 2 - size * 0.24, h / 2 - size * 0.06, size * 0.5, size * 0.22);
+    }
+    if (rng() > 0.42) {
+      ctx.fillStyle = '#e2dac2';
+      ctx.fillRect(w / 2 - 1.5, h / 2 - size * 0.3, 3, size * 0.36);
+      ctx.fillRect(w / 2 - 3, h / 2 - size * 0.32, 6, 3);
+    }
+    ctx.fillStyle = dark;
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(w / 2 + (rng() - 0.5) * size * 0.5, h / 2 + (rng() - 0.5) * size * 0.5, 2, 2);
+    }
+  });
+}
+
+function gibSet(seed, flesh, dark, cloth) {
+  const rng = makeRng(seed);
+  return [14, 18, 12, 20, 16].map((size) => gibChunk(size, rng, flesh, dark, cloth));
 }
 
 // --- pickups -------------------------------------------------------------
@@ -290,41 +310,6 @@ function armorVest(w, h) {
     ctx.fillRect(w / 2 - 1, 6, 3, h - 12);
     ctx.fillStyle = '#1d6e32';
     ctx.fillRect(4, h - 7, w - 8, 3);
-  });
-}
-
-function ammoBox(w, h, base, hi, label) {
-  return S(w, h, (ctx) => {
-    box(ctx, 1, 4, w - 2, h - 6, base, '#00000055');
-    ctx.fillStyle = hi;
-    ctx.fillRect(3, 6, w - 6, 3);
-    ctx.fillStyle = '#e0d8a0';
-    for (let i = 0; i < 4; i++) ctx.fillRect(4 + i * 5, h - 9, 3, 5);
-    ctx.fillStyle = '#00000088';
-    ctx.fillRect(2, h - 4, w - 4, 2);
-    if (label) {
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(w / 2 - 4, 11, 8, 2);
-    }
-  });
-}
-
-function shotgunPickup(w, h) {
-  return S(w, h, (ctx) => {
-    box(ctx, 2, h / 2 - 4, w - 12, 5, '#3c4247', '#22262a');
-    box(ctx, 2, h / 2 + 1, w - 14, 3, '#2c3236');
-    box(ctx, w - 14, h / 2 - 2, 12, 7, '#6d4a28', '#432c16');
-    ctx.fillStyle = '#8f6432';
-    ctx.fillRect(w - 20, h / 2 + 4, 7, 5);
-  });
-}
-
-function chaingunPickup(w, h) {
-  return S(w, h, (ctx) => {
-    box(ctx, w - 15, h / 2 - 5, 13, 11, '#4a5055', '#282c30');
-    for (let i = 0; i < 3; i++) box(ctx, 2, h / 2 - 5 + i * 4, w - 14, 3, '#5c6268', '#303438');
-    ctx.fillStyle = '#8a6a2a';
-    ctx.fillRect(w - 12, h / 2 + 5, 8, 5);
   });
 }
 
@@ -452,18 +437,19 @@ function puffFrames(size, color) {
 export function buildSprites() {
   return {
     enemies: {
-      zombie: enemySet(40, 56, drawZombie, '#7d0d0d'),
-      imp: enemySet(44, 60, drawImp, '#6d0a12'),
-      demon: enemySet(58, 52, drawDemon, '#7d0d0d'),
+      zombie: enemySet(40, 56, drawZombie),
+      imp: enemySet(44, 60, drawImp),
+      demon: enemySet(58, 52, drawDemon),
+    },
+    gibs: {
+      zombie: gibSet(201, '#a8302a', '#5a1414', '#4c5a35'),
+      imp: gibSet(202, '#8f3a22', '#4a1a0c', null),
+      demon: gibSet(203, '#bb5560', '#6a2830', null),
     },
     items: {
       medkit: medkit(26, 24),
       stimpack: stimpack(18, 22),
       armor: armorVest(24, 26),
-      clip: ammoBox(22, 18, '#6d4a1e', '#a2762f', false),
-      shells: ammoBox(24, 18, '#7c2020', '#b03434', true),
-      shotgun: shotgunPickup(38, 20),
-      chaingun: chaingunPickup(38, 22),
       redkey: keycard(16, 20, '#cf2020', '#7a0e0e'),
     },
     props: {

@@ -123,6 +123,11 @@ export class AudioEngine {
         this.burst({ dur: 0.22, type: 'bandpass', f0: 620, f1: 180, q: 2.4, gain: 0.5 * v, delay: 0.04 });
         this.tone({ type: 'sine', f0: 130, f1: 34, dur: 0.32, gain: 0.4 * v });
         break;
+      case 'gib':
+        this.burst({ dur: 0.45, type: 'bandpass', f0: 900, f1: 140, q: 1.2, gain: 0.75 * v });
+        this.burst({ dur: 0.3, type: 'highpass', f0: 2200, f1: 900, gain: 0.3 * v, delay: 0.05 });
+        this.tone({ type: 'sawtooth', f0: 180, f1: 40, dur: 0.4, gain: 0.3 * v });
+        break;
       case 'melee':
         this.burst({ dur: 0.18, type: 'bandpass', f0: 500, f1: 120, q: 2, gain: 0.5 * v });
         break;
@@ -157,9 +162,6 @@ export class AudioEngine {
       case 'locked':
         this.tone({ type: 'square', f0: 150, f1: 90, dur: 0.16, gain: 0.24 * v });
         this.tone({ type: 'square', f0: 150, f1: 90, dur: 0.16, gain: 0.24 * v, delay: 0.18 });
-        break;
-      case 'noammo':
-        this.tone({ type: 'square', f0: 200, f1: 150, dur: 0.06, gain: 0.16 * v });
         break;
       case 'switch':
         this.tone({ type: 'square', f0: 120, f1: 400, dur: 0.2, gain: 0.3 * v });

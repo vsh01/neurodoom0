@@ -22,13 +22,9 @@ export const ENEMY_TYPES = {
 };
 
 export const ITEM_TYPES = {
-  medkit: { sprite: 'medkit', height: 0.36, give: 'health', amount: 25, msg: 'PICKED UP A MEDIKIT' },
+  medkit: { sprite: 'medkit', height: 0.36, give: 'health', amount: 25, msg: 'FRESH MEAT - HEALED' },
   stimpack: { sprite: 'stimpack', height: 0.3, give: 'health', amount: 10, msg: 'PICKED UP A STIMPACK' },
-  armor: { sprite: 'armor', height: 0.4, give: 'armor', amount: 50, msg: 'PICKED UP ARMOUR' },
-  clip: { sprite: 'clip', height: 0.24, give: 'bullets', amount: 15, msg: 'PICKED UP A CLIP' },
-  shells: { sprite: 'shells', height: 0.26, give: 'shells', amount: 8, msg: 'PICKED UP SHELLS' },
-  shotgun: { sprite: 'shotgun', height: 0.28, give: 'weapon', weapon: 1, amount: 8, msg: 'YOU GOT THE SHOTGUN!', big: true },
-  chaingun: { sprite: 'chaingun', height: 0.3, give: 'weapon', weapon: 2, amount: 30, msg: 'YOU GOT THE CHAINGUN!', big: true },
+  armor: { sprite: 'armor', height: 0.4, give: 'armor', amount: 25, msg: 'PICKED UP ARMOUR' },
   redkey: { sprite: 'redkey', height: 0.32, give: 'key', msg: 'PICKED UP A RED KEYCARD', big: true },
 };
 
@@ -55,7 +51,6 @@ export class Enemy extends Actor {
     this.timer = 0;
     this.cooldown = rand(0, 0.6);
     this.anim = rand(0, 4);
-    this.deathTimer = 0;
     this.radius = this.type.radius;
     this.strafe = 0;
     this.strafeTimer = 0;
@@ -70,10 +65,7 @@ export class Enemy extends Actor {
     const dy = p.y - this.y;
     const dist = Math.hypot(dx, dy);
 
-    if (this.state === 'dead') {
-      this.deathTimer += dt;
-      return;
-    }
+    if (this.state === 'dead') return;
 
     this.cooldown -= dt;
     const sees = dist < 24 && g.canSee(this.x, this.y, p.x, p.y);
@@ -166,8 +158,9 @@ export class Enemy extends Actor {
     const dist = Math.hypot(g.player.x - this.x, g.player.y - this.y);
     if (this.hp <= 0) {
       this.state = 'dead';
-      this.deathTimer = 0;
+      this.remove = true;
       g.audio.play('enemyDie', { volume: g.volumeAt(dist) });
+      g.gibEnemy(this);
       g.onEnemyKilled(this);
       return;
     }
@@ -182,19 +175,12 @@ export class Enemy extends Actor {
   spriteInfo() {
     const set = this.game.art.enemies[this.typeName];
     let frame;
-    if (this.state === 'dead') {
-      const i = Math.min(set.die.length - 1, Math.floor(this.deathTimer / 0.11));
-      frame = set.die[i];
-    } else if (this.state === 'attack') {
-      frame = set.attack[0];
-    } else if (this.state === 'pain') {
-      frame = set.pain[0];
-    } else {
-      frame = set.walk[Math.floor(this.anim) % set.walk.length];
-    }
-    const h = this.type.spriteHeight * (this.state === 'dead' ? 1 : 1);
+    if (this.state === 'attack') frame = set.attack[0];
+    else if (this.state === 'pain') frame = set.pain[0];
+    else frame = set.walk[Math.floor(this.anim) % set.walk.length];
     return {
-      x: this.x, y: this.y, frame, base: 0, height: h, glow: false, lightBias: 0,
+      x: this.x, y: this.y, frame, base: 0, height: this.type.spriteHeight,
+      glow: false, lightBias: 0,
     };
   }
 }
@@ -324,6 +310,53 @@ export class Projectile extends Actor {
     return {
       x: this.x, y: this.y, frame: frames[Math.floor(this.anim) % frames.length],
       base: 0.34, height: 0.32, glow: true, lightBias: 0,
+    };
+  }
+}
+
+// A piece of something that used to be a monster: flies out of the grip,
+// bounces once or twice, then stays on the floor as scenery.
+export class Gib extends Actor {
+  constructor(game, typeName, x, y, z, vx, vy, vz) {
+    super(game, x, y);
+    this.kind = 'gib';
+    const set = game.art.gibs[typeName] || game.art.gibs.zombie;
+    this.frame = set[randInt(0, set.length - 1)];
+    this.z = z;
+    this.vx = vx;
+    this.vy = vy;
+    this.vz = vz;
+    this.size = rand(0.16, 0.3);
+    this.resting = false;
+  }
+
+  update(dt) {
+    if (this.resting) return;
+    this.vz -= 11 * dt;
+    const nx = this.x + this.vx * dt;
+    const ny = this.y + this.vy * dt;
+    if (!this.game.isWall(nx, this.y)) this.x = nx; else this.vx *= -0.4;
+    if (!this.game.isWall(this.x, ny)) this.y = ny; else this.vy *= -0.4;
+    this.z += this.vz * dt;
+    if (this.z <= 0.03) {
+      this.z = 0.03;
+      if (Math.abs(this.vz) < 1.3) {
+        this.resting = true;
+        this.vx = 0;
+        this.vy = 0;
+        this.vz = 0;
+      } else {
+        this.vz = -this.vz * 0.34;
+        this.vx *= 0.55;
+        this.vy *= 0.55;
+      }
+    }
+  }
+
+  spriteInfo() {
+    return {
+      x: this.x, y: this.y, frame: this.frame, base: this.z, height: this.size,
+      glow: false, lightBias: 0,
     };
   }
 }

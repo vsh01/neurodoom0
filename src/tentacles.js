@@ -36,7 +36,9 @@ export function tentacle(ctx, o) {
       x += px * wob;
       y += py * wob;
     }
-    const w = (o.w0 + (o.w1 - o.w0) * t) / 2;
+    // narrow the last stretch to a point so the limb ends in a tip, not a stump
+    const tip = t > 0.84 ? Math.max(0.1, 1 - (t - 0.84) / 0.16) : 1;
+    const w = ((o.w0 + (o.w1 - o.w0) * t) / 2) * tip;
     widths.push(w);
     mid.push([x, y]);
     left.push([x + px * w, y + py * w]);

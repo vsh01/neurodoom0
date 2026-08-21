@@ -154,19 +154,15 @@ export class Hud {
     ctx.fillStyle = '#0a0b0d';
     ctx.fillRect(0, y0 + 1, w, 1);
 
-    const weapon = game.weapons[p.weapon];
-    const ammo = p.ammo[weapon.ammo];
     const unit = w / 100;
-
-    // ammo
-    this.drawText(ctx, 'AMMO', unit * 4, y0 + 13, 8, DIM);
-    this.drawText(ctx, String(ammo), unit * 4, y0 + 31, 18, RED);
+    // kills
+    this.drawText(ctx, 'KILLS', unit * 4, y0 + 13, 8, DIM);
+    this.drawText(ctx, `${game.stats.kills}/${game.stats.totalKills}`, unit * 4, y0 + 31, 18, RED);
     // health
-    this.drawText(ctx, 'HEALTH', unit * 19, y0 + 13, 8, DIM);
-    this.drawText(ctx, `${Math.max(0, Math.round(p.health))}%`, unit * 19, y0 + 31, 18, RED);
-    // face
-    const face = this.faceFor(game);
-    ctx.drawImage(face, Math.round(w / 2 - 13), y0 + 4);
+    this.drawText(ctx, 'HEALTH', unit * 22, y0 + 13, 8, DIM);
+    this.drawText(ctx, `${Math.max(0, Math.round(p.health))}%`, unit * 22, y0 + 31, 18, RED);
+    // portrait
+    ctx.drawImage(this.faceFor(game), Math.round(w / 2 - 13), y0 + 4);
     // armour
     this.drawText(ctx, 'ARMOUR', unit * 62, y0 + 13, 8, DIM);
     this.drawText(ctx, `${Math.round(p.armor)}%`, unit * 62, y0 + 31, 18, RED);
@@ -177,13 +173,18 @@ export class Hud {
     ctx.fillStyle = '#00000066';
     ctx.fillRect(Math.round(unit * 78), y0 + 23, 8, 2);
 
-    // weapon slots
-    this.drawText(ctx, 'ARMS', unit * 88, y0 + 13, 8, DIM);
-    for (let i = 0; i < game.weapons.length; i++) {
-      const owned = p.hasWeapon[i];
-      const x = Math.round(unit * 88 + i * 10);
-      this.drawText(ctx, String(i + 1), x, y0 + 31, 12,
-        i === p.weapon ? '#f0e0a0' : (owned ? RED : '#4a4a52'));
+    // limb readiness: three pips that go dark while the tentacles recover
+    this.drawText(ctx, 'REACH', unit * 88, y0 + 13, 8, DIM);
+    const ready = game.crush ? 0 : clamp(1 - game.crushCooldown / 0.7, 0, 1);
+    for (let i = 0; i < 3; i++) {
+      const lit = ready > (i + 0.5) / 3;
+      const x = Math.round(unit * 88 + i * 8);
+      ctx.fillStyle = lit ? '#c85aff' : '#3a2a44';
+      ctx.fillRect(x, y0 + 21, 6, 10);
+      if (lit) {
+        ctx.fillStyle = '#f0d8ff';
+        ctx.fillRect(x + 1, y0 + 22, 2, 3);
+      }
     }
   }
 
@@ -245,9 +246,9 @@ export class Hud {
     this.drawText(ctx, 'YOU ARE THE THING WITH THE TENTACLES', cx, h * 0.3 + 58, 9, '#c8c2a8', 'center');
     const blink = Math.floor(game.time * 2) % 2 === 0;
     if (blink) this.drawText(ctx, 'CLICK OR PRESS ENTER TO PLAY', cx, h * 0.62, 12, '#f0e8c8', 'center');
-    this.drawText(ctx, 'WASD MOVE   MOUSE LOOK   CLICK FIRE   E USE   1-3 WEAPONS   TAB MAP', cx, h - 54, 8, '#8a8a92', 'center');
+    this.drawText(ctx, 'WASD MOVE   MOUSE LOOK   CLICK LASH OUT   E USE   TAB MAP', cx, h - 54, 8, '#8a8a92', 'center');
     this.drawText(ctx, 'SHIFT RUN   M MUSIC   P PAUSE   R RESTART LEVEL', cx, h - 42, 8, '#8a8a92', 'center');
-    this.drawText(ctx, 'ANYTHING THAT GETS CLOSE ENOUGH GETS CRUSHED', cx, h - 30, 8, '#8a5aa8', 'center');
+    this.drawText(ctx, 'NO GUNS. ANYTHING IN REACH GETS TORN APART', cx, h - 30, 8, '#8a5aa8', 'center');
   }
 
   paused(ctx, w, h) {
