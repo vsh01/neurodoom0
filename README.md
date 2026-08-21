@@ -1,6 +1,8 @@
 # NEURODOOM
 
-A DOOM-style raycasting first-person shooter that runs in a browser tab.
+A DOOM-style raycasting first-person shooter that runs in a browser tab, where
+you play the thing with the tentacles: two guns held out at the edges of the
+view, and spare limbs that lash out and crush anything that walks into reach.
 No engine, no framework, no build step, **no asset files at all** - every wall
 texture, monster sprite, weapon, sound effect and the music are generated in
 JavaScript when the page loads.
@@ -16,7 +18,8 @@ JavaScript when the page loads.
 | --- | --- |
 | Move / strafe | `W` `A` `S` `D` |
 | Turn | mouse, or `←` `→` |
-| Fire | left mouse button, or `Ctrl` |
+| Fire (guns alternate) | left mouse button, or `Ctrl` |
+| Crush | automatic - anything that gets within reach in front of you |
 | Open doors, press switches | `E`, `Space` or right mouse button |
 | Run | `Shift` |
 | Weapons | `1` pistol, `2` shotgun, `3` chaingun, or mouse wheel |
@@ -34,8 +37,13 @@ Three levels - *Hangar Zero*, *Toxin Refinery* and *Hell's Gate*. Each one is
 locked behind a red keycard and ends at an exit switch you have to find and
 press. Health, armour and ammo carry over between levels.
 
-- **Three weapons.** Pistol, pump shotgun (8 pellets per shell) and a chaingun
-  that fires 10 rounds a second.
+- **Three weapons, held in pairs.** Pistol, pump shotgun (8 pellets per shell)
+  and a chaingun. Each gun is gripped by a tentacle at its side of the screen
+  and they fire alternately.
+- **The crush.** Get a monster within about two and a half squares in front of
+  you and the spare tentacles whip out of the bottom corners, take hold and
+  squeeze for 58 damage - enough to fold a former human in one go. It fires on
+  its own, on a cooldown, and will not reach through walls.
 - **Three monsters.** Former humans shoot back, hellspawn lob fireballs, and
   demons close the distance fast and bite. All of them wake on sight or gunfire,
   flinch when hurt, and open doors to reach you.
@@ -56,7 +64,8 @@ point-scaled to the display canvas.
 | `src/renderer.js` | Floor/ceiling casting, DDA wall casting with sliding doors, z-buffered billboard sprites |
 | `src/textures.js` | Procedural 64x64 wall and flat textures (brick, tech panels, blood, doors, hazard supports) |
 | `src/sprites.js` | Procedural monster, pickup, prop and effect sprites drawn on an off-screen canvas |
-| `src/weapons.js` | First-person weapon art and weapon stats |
+| `src/weapons.js` | First-person weapon art (both mirrored halves) and weapon stats |
+| `src/tentacles.js` | Tapered-bezier tentacle ribbons for the grips and the crush |
 | `src/entities.js` | Monster AI, pickups, barrels, projectiles, effects |
 | `src/levels.js` | ASCII level maps compiled into typed arrays |
 | `src/game.js` | Player, combat, doors, keys, scoring, frame update |

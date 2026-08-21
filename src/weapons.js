@@ -1,31 +1,27 @@
-// First-person weapon art + stats. The sprites are drawn straight onto the
-// low-resolution framebuffer canvas so they share the chunky look of the world.
+// First-person weapon art + stats. You are the thing with the tentacles: each
+// gun is gripped by a limb reaching in from a bottom corner, and the pair is
+// drawn at the left and right edges of the view pointing forward.
 
 import { makeCanvas, TAU } from './util.js';
+import { tentacle, coil, FLESH, FLESH_LIT } from './tentacles.js';
 
-// Guns are authored on a 200x150 grid and rasterised at whatever scale the
-// current view calls for, so the weapon always covers about the same slice of
-// the screen instead of a fixed number of framebuffer pixels. The bottom ~9%
-// of the sprite sits behind the status bar.
+// Guns are authored on a 200x150 grid (the right-hand one; the left is a
+// mirror) and rasterised at whatever scale the current view calls for, so a
+// weapon always covers the same slice of the screen on any window shape.
 const GW = 200;
 const GH = 150;
-const VIEW_FRACTION = 0.58; // of the 3D view height, before the bit that sinks
+const VIEW_FRACTION = 0.5;
 
-// Set by buildWeapons() right before the frames are drawn.
-let SCALE = 0.7;
+let SCALE = 0.7; // set by buildWeapons() before the frames are drawn
 
-// Scale that makes a gun cover VIEW_FRACTION of a view this tall.
 export function weaponScaleForView(viewHeight) {
-  const s = (viewHeight * VIEW_FRACTION) / GH;
-  return Math.max(0.34, Math.min(1.5, s));
+  return Math.max(0.3, Math.min(1.4, (viewHeight * VIEW_FRACTION) / GH));
 }
 
-// How far the grip hides behind the status bar, in framebuffer pixels.
 export function weaponSink() {
-  return Math.round(GH * SCALE * 0.09);
+  return Math.round(GH * SCALE * 0.03);
 }
 
-// Bob amplitude should shrink with the gun.
 export function weaponBobScale() {
   return SCALE;
 }
@@ -40,186 +36,210 @@ function frame(draw) {
   return canvas;
 }
 
-function r(ctx, x, y, w, h, fill, shade) {
-  ctx.fillStyle = fill;
-  ctx.fillRect(x, y, w, h);
-  if (shade) {
-    ctx.fillStyle = shade;
-    ctx.fillRect(x, y + h - 2, w, 2);
-    ctx.fillRect(x + w - 2, y, 2, h);
-  }
+function mirror(src) {
+  const { canvas, ctx } = makeCanvas(src.width, src.height);
+  ctx.save();
+  ctx.translate(src.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(src, 0, 0);
+  ctx.restore();
+  return canvas;
 }
 
-function round(ctx, x, y, w, h, rad) {
-  const k = Math.min(rad, w / 2, h / 2);
+// A quad that narrows along its axis - the whole reason these guns read as
+// pointing away from the viewer.
+function taper(ctx, x0, y0, x1, y1, w0, w1, fill) {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const len = Math.hypot(dx, dy) || 1;
+  const px = -dy / len;
+  const py = dx / len;
   ctx.beginPath();
-  ctx.moveTo(x + k, y);
-  ctx.arcTo(x + w, y, x + w, y + h, k);
-  ctx.arcTo(x + w, y + h, x, y + h, k);
-  ctx.arcTo(x, y + h, x, y, k);
-  ctx.arcTo(x, y, x + w, y, k);
+  ctx.moveTo(x0 + px * w0 / 2, y0 + py * w0 / 2);
+  ctx.lineTo(x1 + px * w1 / 2, y1 + py * w1 / 2);
+  ctx.lineTo(x1 - px * w1 / 2, y1 - py * w1 / 2);
+  ctx.lineTo(x0 - px * w0 / 2, y0 - py * w0 / 2);
   ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+}
+
+// Lit strip down one flank of a tapered body.
+function taperEdge(ctx, x0, y0, x1, y1, w0, w1, fill, side = 1) {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const len = Math.hypot(dx, dy) || 1;
+  const px = (-dy / len) * side;
+  const py = (dx / len) * side;
+  ctx.beginPath();
+  ctx.moveTo(x0 + px * w0 / 2, y0 + py * w0 / 2);
+  ctx.lineTo(x1 + px * w1 / 2, y1 + py * w1 / 2);
+  ctx.lineTo(x1 + px * w1 * 0.24, y1 + py * w1 * 0.24);
+  ctx.lineTo(x0 + px * w0 * 0.24, y0 + py * w0 * 0.24);
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+}
+
+function ring(ctx, x, y, rx, ry, outer, inner) {
+  ctx.fillStyle = outer;
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = inner;
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx * 0.52, ry * 0.52, 0, 0, TAU);
+  ctx.fill();
 }
 
 function flash(ctx, x, y, scale) {
-  const g = ctx.createRadialGradient(x, y, 2, x, y, 34 * scale);
+  const g = ctx.createRadialGradient(x, y, 1, x, y, 30 * scale);
   g.addColorStop(0, '#fffdf2');
-  g.addColorStop(0.28, '#ffe07a');
-  g.addColorStop(0.6, '#ff9c22');
+  g.addColorStop(0.26, '#ffe07a');
+  g.addColorStop(0.58, '#ff9c22');
   g.addColorStop(1, 'rgba(255,120,0,0)');
   ctx.fillStyle = g;
   ctx.beginPath();
-  ctx.arc(x, y, 34 * scale, 0, TAU);
+  ctx.arc(x, y, 30 * scale, 0, TAU);
   ctx.fill();
   ctx.fillStyle = '#fff6d8';
-  for (let i = 0; i < 7; i++) {
-    const a = (i / 7) * TAU + 0.4;
-    const d = 13 * scale;
-    ctx.fillRect(x + Math.cos(a) * d - 2, y + Math.sin(a) * d - 2, 4, 4);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * TAU + 0.5;
+    const d = 12 * scale;
+    ctx.fillRect(x + Math.cos(a) * d - 2, y + Math.sin(a) * d - 2, 3.5, 3.5);
   }
 }
 
-// A gloved fist wrapped around a grip. `flip` puts the fingers on the left.
-function hand(ctx, x, y, w, h, flip) {
-  ctx.fillStyle = '#2f343a';
-  ctx.fillRect(x - 1, y + h - 12, w + 2, 16); // sleeve
-  ctx.fillStyle = '#c49a6e';
-  round(ctx, x, y, w, h, 6);
-  ctx.fill();
-  ctx.fillStyle = '#a37d55';
-  ctx.fillRect(flip ? x : x + w - 7, y + 5, 7, h - 12);
-  const fw = Math.round(w * 0.52);
-  const fx = flip ? x + 1 : x + w - fw - 1;
-  const fh = (h - 14) / 4;
-  for (let i = 0; i < 4; i++) {
-    const fy = y + 4 + i * fh;
-    ctx.fillStyle = i % 2 ? '#cda87e' : '#c09468';
-    round(ctx, fx, fy, fw, fh - 1.5, 3);
-    ctx.fill();
-    ctx.fillStyle = '#8a6642';
-    ctx.fillRect(fx, fy + fh - 2, fw, 1.5);
-  }
-  ctx.fillStyle = '#b98e62';
-  round(ctx, flip ? x + w - 11 : x, y + h * 0.42, 11, h * 0.4, 4);
-  ctx.fill();
+// The limb is drawn in two passes so the gun sits inside the grip rather than
+// behind it: the thick arm comes up from the corner first, the gun goes on top,
+// then a coil and a thin curl wrap back over the receiver and barrel.
+function gripBack(ctx, bx, by, thickness, phase = 0) {
+  tentacle(ctx, {
+    x0: GW + 2, y0: GH + 18,
+    cx: GW - 34, cy: by + 26,
+    x1: bx + 2, y1: by - 10,
+    w0: thickness * 1.5, w1: thickness * 0.85,
+    wobble: 2, phase,
+    suckers: true,
+  });
+  tentacle(ctx, {
+    x0: GW + 18, y0: GH - 4,
+    cx: GW - 8, cy: by - 40,
+    x1: bx - 30, y1: by - 74,
+    w0: thickness * 0.8, w1: thickness * 0.3,
+    wobble: 3, phase: phase + 2.1,
+    suckers: true,
+  });
 }
 
-function tilt(ctx, cx, cy, angle) {
-  ctx.translate(cx, cy);
-  ctx.rotate(angle);
-  ctx.translate(-cx, -cy);
-}
-
-function rotPoint(cx, cy, x, y, a) {
-  const dx = x - cx;
-  const dy = y - cy;
-  return [cx + dx * Math.cos(a) - dy * Math.sin(a), cy + dx * Math.sin(a) + dy * Math.cos(a)];
+function gripFront(ctx, bx, by, thickness, phase = 0) {
+  coil(ctx, bx - 6, by - 26, thickness * 0.66, thickness * 0.34, -0.5, thickness * 0.38, FLESH);
+  tentacle(ctx, {
+    x0: bx + 14, y0: by - 6,
+    cx: bx - 12, cy: by - 44,
+    x1: bx - 30, y1: by - 58,
+    w0: thickness * 0.5, w1: thickness * 0.2,
+    wobble: 2, phase: phase + 1.3,
+    suckers: true,
+  });
 }
 
 // --- pistol --------------------------------------------------------------
 function pistol(kick, fired) {
-  const cx = GW / 2 + 10;
-  const ang = -0.1;
   return frame((ctx) => {
-    ctx.translate(0, kick);
-    ctx.save();
-    tilt(ctx, cx, 150, ang);
-    // barrel + slide
-    r(ctx, cx - 3, 42, 6, 6, '#4c545d');
-    r(ctx, cx - 12, 48, 24, 8, '#2c3138', '#15181c');
-    r(ctx, cx - 14, 54, 28, 46, '#414851', '#20252a');
-    ctx.fillStyle = '#5d666f';
-    ctx.fillRect(cx - 14, 54, 5, 46);
-    ctx.fillStyle = '#1b1f23';
-    ctx.fillRect(cx - 1, 64, 11, 6);
-    ctx.fillRect(cx - 12, 84, 24, 2);
-    // frame + trigger guard
-    r(ctx, cx - 16, 100, 32, 22, '#333941', '#191d21');
-    ctx.strokeStyle = '#262b31';
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.arc(cx - 2, 122, 11, 0, Math.PI);
-    ctx.stroke();
-    // grip
-    r(ctx, cx - 13, 118, 25, 34, '#2a2f36', '#14171a');
-    ctx.fillStyle = '#1d2126';
-    for (let i = 0; i < 5; i++) ctx.fillRect(cx - 12, 122 + i * 6, 23, 2);
-    ctx.restore();
-    hand(ctx, cx - 26, 112, 34, 44, false);
-    if (fired) {
-      const [fx, fy] = rotPoint(cx, 150, cx, 40, ang);
-      flash(ctx, fx, fy, 0.85);
-    }
+    ctx.translate(kick * 0.4, kick);
+    const bx = 124;
+    const by = 140;
+    const mx = 80;
+    const my = 30;
+    gripBack(ctx, bx, by, 26);
+    taper(ctx, bx, by, mx + 4, my + 16, 42, 22, '#333940');
+    taperEdge(ctx, bx, by, mx + 4, my + 16, 42, 22, '#4e565f', -1);
+    // slide rails
+    ctx.fillStyle = '#1b1f24';
+    taper(ctx, bx - 6, by - 24, mx + 3, my + 20, 6, 3, '#1b1f24');
+    // barrel + muzzle
+    taper(ctx, mx + 4, my + 16, mx, my, 20, 15, '#3d444c');
+    taperEdge(ctx, mx + 4, my + 16, mx, my, 20, 15, '#59626b', -1);
+    ring(ctx, mx, my - 1, 8, 6, '#4a525b', '#0d0f12');
+    // magazine hanging out of the grip end
+    taper(ctx, bx + 6, by + 6, bx - 2, by - 26, 20, 14, '#262b31');
+    gripFront(ctx, bx, by, 26);
+    if (fired) flash(ctx, mx, my - 3, 0.9);
   });
 }
 
 // --- shotgun -------------------------------------------------------------
 function shotgun(kick, fired, pump) {
-  const cx = GW / 2 + 6;
-  const ang = -0.13;
   return frame((ctx) => {
-    ctx.translate(0, kick);
-    ctx.save();
-    tilt(ctx, cx, 150, ang);
-    // barrel with a magazine tube under it
-    r(ctx, cx - 13, 26, 26, 8, '#2c3138', '#15181c');
-    r(ctx, cx - 11, 32, 22, 72, '#3f464d', '#22272d');
-    ctx.fillStyle = '#5a636c';
-    ctx.fillRect(cx - 11, 32, 5, 72);
-    ctx.fillStyle = '#1b1f23';
-    ctx.fillRect(cx + 2, 32, 2, 72);
-    // fore-end (slides back while pumping)
-    r(ctx, cx - 21, 96 + pump, 42, 20, '#7a5228', '#41290e');
-    ctx.fillStyle = '#9a6a36';
-    ctx.fillRect(cx - 21, 98 + pump, 42, 3);
-    ctx.fillStyle = '#4e3212';
-    for (let i = 0; i < 5; i++) ctx.fillRect(cx - 18 + i * 8, 100 + pump, 2, 13);
-    // receiver + stock
-    r(ctx, cx - 17, 118, 36, 32, '#343a41', '#191d21');
-    ctx.fillStyle = '#485058';
-    ctx.fillRect(cx - 17, 118, 36, 3);
-    ctx.fillStyle = '#16191d';
-    ctx.fillRect(cx - 12, 130, 22, 6);
-    ctx.restore();
-    hand(ctx, cx - 40, 100 + pump, 32, 40, true);
-    hand(ctx, cx + 4, 116, 32, 34, false);
-    if (fired) {
-      const [fx, fy] = rotPoint(cx, 150, cx, 24, ang);
-      flash(ctx, fx, fy, 1.05);
+    ctx.translate(kick * 0.4, kick);
+    const bx = 128;
+    const by = 146;
+    const mx = 82;
+    const my = 26;
+    gripBack(ctx, bx, by, 30, 1.1);
+    taper(ctx, bx, by, mx + 6, my + 22, 52, 30, '#343b43');
+    taperEdge(ctx, bx, by, mx + 6, my + 22, 52, 30, '#525b64', -1);
+    // twin tubes running to the muzzle
+    taper(ctx, bx - 12, by - 30, mx + 2, my + 6, 30, 22, '#3f474f');
+    taperEdge(ctx, bx - 12, by - 30, mx + 2, my + 6, 30, 22, '#5d666f', -1);
+    ring(ctx, mx - 3, my + 2, 7, 5, '#4a525b', '#0b0d10');
+    ring(ctx, mx + 8, my + 6, 7, 5, '#4a525b', '#0b0d10');
+    // wooden fore-end, slides back when pumping
+    const px = -pump * 0.34;
+    const py = pump;
+    taper(ctx, bx - 26 + px, by - 56 + py, bx - 40 + px, by - 88 + py, 40, 34, '#6f4a25');
+    taperEdge(ctx, bx - 26 + px, by - 56 + py, bx - 40 + px, by - 88 + py, 40, 34, '#9a6a36', -1);
+    ctx.fillStyle = '#3d270f';
+    for (let i = 0; i < 4; i++) {
+      ctx.fillRect(bx - 46 + px + i * 7, by - 84 + py + i * 2, 3, 22);
     }
+    gripFront(ctx, bx, by, 30, 1.1);
+    if (fired) flash(ctx, mx + 2, my, 1.15);
   });
 }
 
 // --- chaingun ------------------------------------------------------------
 function chaingun(kick, fired, spin) {
-  const cx = GW / 2;
   return frame((ctx) => {
-    ctx.translate(0, kick);
-    // rotating barrel cluster
+    ctx.translate(kick * 0.4, kick);
+    const bx = 132;
+    const by = 150;
+    const mx = 88;
+    const my = 34;
+    gripBack(ctx, bx, by, 32, 2.2);
+    taper(ctx, bx, by, mx + 6, my + 30, 58, 40, '#333940');
+    taperEdge(ctx, bx, by, mx + 6, my + 30, 58, 40, '#4f575f', -1);
+    ctx.fillStyle = '#1c2025';
+    taper(ctx, bx - 10, by - 40, mx + 6, my + 34, 34, 24, '#252a30');
+    // barrel cluster seen nearly end-on
     for (let i = 0; i < 6; i++) {
       const a = spin + (i / 6) * TAU;
-      const bx = cx + Math.cos(a) * 15;
+      const ox = Math.cos(a) * 11;
+      const oy = Math.sin(a) * 7;
       const front = Math.sin(a) > 0;
-      r(ctx, bx - 5, 48, 10, 56, front ? '#5f6870' : '#2f343a', '#1b1f23');
+      taper(ctx, mx + 8 + ox * 1.5, my + 30 + oy * 1.5, mx + ox, my + oy, 11, 8,
+        front ? '#5c646c' : '#2c3138');
     }
-    r(ctx, cx - 22, 42, 44, 9, '#454c53', '#252a30');
-    ctx.fillStyle = '#5d666f';
-    ctx.fillRect(cx - 22, 42, 44, 2);
-    // housing
-    r(ctx, cx - 30, 100, 60, 32, '#3a4046', '#20242a');
-    ctx.fillStyle = '#4f575f';
-    ctx.fillRect(cx - 30, 100, 60, 4);
-    ctx.fillStyle = '#1e2227';
-    ctx.fillRect(cx - 24, 112, 48, 5);
-    ctx.fillStyle = '#8e2b20';
-    ctx.fillRect(cx + 16, 106, 8, 4);
-    r(ctx, cx - 36, 130, 72, 20, '#2a2e34', '#16191d');
-    // ammo belt feeding in from the right
-    for (let i = 0; i < 5; i++) r(ctx, cx + 26 + (i % 2) * 6, 122 + i * 6, 7, 9, '#a8842e', '#5e4a18');
-    hand(ctx, cx - 52, 104, 32, 42, true);
-    hand(ctx, cx + 20, 104, 32, 42, false);
-    if (fired) flash(ctx, cx + Math.cos(spin) * 15, 40, 0.95);
+    ctx.fillStyle = '#12151a';
+    for (let i = 0; i < 6; i++) {
+      const a = spin + (i / 6) * TAU;
+      ctx.beginPath();
+      ctx.ellipse(mx + Math.cos(a) * 11, my + Math.sin(a) * 7, 3, 2.2, 0, 0, TAU);
+      ctx.fill();
+    }
+    // ammo belt spilling toward the corner
+    ctx.fillStyle = '#a8842e';
+    for (let i = 0; i < 5; i++) {
+      ctx.fillRect(bx + 6 + (i % 2) * 7, by - 26 + i * 6, 7, 9);
+    }
+    gripFront(ctx, bx, by, 32, 2.2);
+    if (fired) flash(ctx, mx + Math.cos(spin) * 11, my + Math.sin(spin) * 7, 1.0);
   });
+}
+
+function pair(canvas) {
+  return { right: canvas, left: mirror(canvas) };
 }
 
 // Frame lists are rebuilt whenever the view size changes; `fireSeq` entries
@@ -235,12 +255,12 @@ export function buildWeapons(scale) {
       damage: [9, 15],
       pellets: 1,
       spread: 0.014,
-      cooldown: 0.42,
+      cooldown: 0.34,
       auto: false,
       range: 40,
       sound: 'pistol',
-      frames: [pistol(0, false), pistol(-6, true), pistol(4, false), pistol(1, false)],
-      fireSeq: [[1, 0.06], [2, 0.09], [3, 0.08], [0, 0]],
+      frames: [pistol(0, false), pistol(8, true), pistol(5, false), pistol(2, false)].map(pair),
+      fireSeq: [[1, 0.06], [2, 0.08], [3, 0.07], [0, 0]],
     },
     {
       id: 'shotgun',
@@ -250,15 +270,15 @@ export function buildWeapons(scale) {
       damage: [5, 9],
       pellets: 8,
       spread: 0.10,
-      cooldown: 0.92,
+      cooldown: 0.82,
       auto: false,
       range: 26,
       sound: 'shotgun',
       frames: [
-        shotgun(0, false, 0), shotgun(-10, true, 0), shotgun(6, false, 0),
-        shotgun(3, false, 16), shotgun(1, false, 8),
-      ],
-      fireSeq: [[1, 0.08], [2, 0.12], [3, 0.24], [4, 0.16], [0, 0]],
+        shotgun(0, false, 0), shotgun(12, true, 0), shotgun(7, false, 0),
+        shotgun(4, false, 16), shotgun(2, false, 8),
+      ].map(pair),
+      fireSeq: [[1, 0.08], [2, 0.1], [3, 0.22], [4, 0.14], [0, 0]],
     },
     {
       id: 'chaingun',
@@ -268,15 +288,15 @@ export function buildWeapons(scale) {
       damage: [7, 12],
       pellets: 1,
       spread: 0.05,
-      cooldown: 0.1,
+      cooldown: 0.09,
       auto: true,
       range: 40,
       sound: 'chaingun',
       frames: [
-        chaingun(0, false, 0), chaingun(-4, true, 0.5), chaingun(-2, true, 1.6),
-        chaingun(0, false, 2.6),
-      ],
-      fireSeq: [[1, 0.05], [2, 0.05], [3, 0.02], [0, 0]],
+        chaingun(0, false, 0), chaingun(5, true, 0.6), chaingun(3, true, 1.7),
+        chaingun(1, false, 2.7),
+      ].map(pair),
+      fireSeq: [[1, 0.05], [2, 0.04], [3, 0.02], [0, 0]],
     },
   ];
 }

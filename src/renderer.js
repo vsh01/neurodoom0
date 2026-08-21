@@ -272,6 +272,28 @@ export class Renderer {
     this.vctx.putImageData(this.image, 0, 0);
   }
 
+  // Where a world point lands on the framebuffer, for HUD-space effects that
+  // need to reach into the scene (the crush tentacles). z is the height above
+  // the floor, 0.5 being eye level. Returns null when it is behind the camera.
+  projectToScreen(cam, x, y, z = 0.5) {
+    const dirX = Math.cos(cam.angle);
+    const dirY = Math.sin(cam.angle);
+    const planeX = -dirY * FOV_SCALE;
+    const planeY = dirX * FOV_SCALE;
+    const relX = x - cam.x;
+    const relY = y - cam.y;
+    const invDet = 1 / (planeX * dirY - dirX * planeY);
+    const tx = invDet * (dirY * relX - dirX * relY);
+    const ty = invDet * (-planeY * relX + planeX * relY);
+    if (ty <= 0.08) return null;
+    const horizon = Math.round(this.h * 0.5 + cam.pitch);
+    return {
+      x: (this.w * 0.5) * (1 + tx / ty),
+      y: horizon + ((0.5 - z) * this.h) / ty,
+      dist: ty,
+    };
+  }
+
   // Blit the framebuffer (plus anything drawn on top of it) to the display,
   // centred, with black bars when the window aspect does not match the view.
   present() {

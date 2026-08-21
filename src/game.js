@@ -1,17 +1,27 @@
 // Game rules: player, weapons, doors, pickups, combat and the frame loop.
 
-import { clamp, randInt } from './util.js';
+import { clamp, rand, randInt, angleDiff } from './util.js';
 import { buildLevel, levelCount } from './levels.js';
 import { T } from './textures.js';
 import { Enemy, Item, Prop, Projectile, Effect } from './entities.js';
 import { Hud } from './hud.js';
 import { buildWeapons, weaponScaleForView, weaponSink, weaponBobScale } from './weapons.js';
+import { tentacle } from './tentacles.js';
 
 const PLAYER_RADIUS = 0.26;
 const WALK_SPEED = 3.05;
 const RUN_SPEED = 5.35;
 const AMMO_MAX = { bullets: 220, shells: 60 };
 const BAR_H = 38;
+
+// The crush: anything that walks into arm's reach gets taken apart by the
+// spare tentacles. No button - being the monster is the point.
+const CRUSH_RANGE = 2.5;
+const CRUSH_ARC = 1.4;      // radians either side of where you are looking
+const CRUSH_DAMAGE = 58;
+const CRUSH_DURATION = 0.62;
+const CRUSH_STRIKE = 0.24;  // when in the animation the squeeze lands
+const CRUSH_COOLDOWN = 0.7;
 
 export class Game {
   constructor({ renderer, art, audio, input, weapons }) {
@@ -33,6 +43,9 @@ export class Game {
     this.shake = 0;
     this.recoil = 0;
     this.showMap = false;
+    this.crush = null;
+    this.crushCooldown = 0;
+    this.fireSide = 'right';
     this.camera = { x: 0, y: 0, angle: 0, pitch: 0 };
     this.totals = { kills: 0, time: 0, deaths: 0 };
     this.player = this.freshPlayer();
@@ -64,6 +77,8 @@ export class Game {
     this.revealTimer = 0;
     this.weaponAnim = null;
     this.fireCooldown = 0;
+    this.crush = null;
+    this.crushCooldown = 0;
     this.showMap = false;
     this.painFlash = 0;
     this.pickupFlash = 0;
@@ -296,7 +311,8 @@ export class Game {
     }
     p.ammo[w.ammo] -= w.ammoUse;
     this.fireCooldown = w.cooldown;
-    this.weaponAnim = { seq: w.fireSeq, i: 0, t: w.fireSeq[0][1] };
+    this.fireSide = this.fireSide === 'right' ? 'left' : 'right';
+    this.weaponAnim = { seq: w.fireSeq, i: 0, t: w.fireSeq[0][1], side: this.fireSide };
     this.audio.play(w.sound);
     this.lightBoost = 7;
     this.recoil = w.id === 'shotgun' ? 5 : 3;
@@ -364,6 +380,98 @@ export class Game {
     }
     const pd = Math.hypot(this.player.x - x, this.player.y - y);
     if (pd < radius && this.player.alive) this.hurtPlayer(Math.round(damage * (1 - pd / radius) * 0.7));
+  }
+
+  updateCrush(dt) {
+    const p = this.player;
+    this.crushCooldown -= dt;
+    if (this.crush) {
+      const c = this.crush;
+      c.t += dt;
+      if (!c.damaged && c.t >= CRUSH_STRIKE) {
+        c.damaged = true;
+        const e = c.target;
+        if (e && e.alive) {
+          this.audio.play('crush');
+          e.hurt(CRUSH_DAMAGE);
+          this.spawnEffect('blood', e.x, e.y, 0.32, 0.7, 0.5);
+          this.shake = Math.max(this.shake, 0.7);
+        }
+      }
+      if (c.t >= CRUSH_DURATION) {
+        this.crush = null;
+        this.crushCooldown = CRUSH_COOLDOWN;
+      }
+      return;
+    }
+    if (this.crushCooldown > 0 || !p.alive) return;
+
+    let best = null;
+    let bestD = CRUSH_RANGE;
+    for (const a of this.actors) {
+      if (a.kind !== 'enemy' || !a.alive) continue;
+      const dx = a.x - p.x;
+      const dy = a.y - p.y;
+      const d = Math.hypot(dx, dy);
+      if (d > bestD) continue;
+      if (Math.abs(angleDiff(p.angle, Math.atan2(dy, dx))) > CRUSH_ARC) continue;
+      if (!this.canSee(p.x, p.y, a.x, a.y)) continue; // no reaching through walls
+      bestD = d;
+      best = a;
+    }
+    if (!best) return;
+    this.crush = {
+      t: 0,
+      target: best,
+      damaged: false,
+      phases: [rand(0, 6), rand(0, 6), rand(0, 6)],
+    };
+    this.audio.play('lash');
+  }
+
+  // Tentacles lash out of the bottom corners, converge on whatever is being
+  // crushed, and squeeze. Drawn in framebuffer space over the world.
+  drawCrush(ctx, w, h) {
+    const c = this.crush;
+    const viewH = h - BAR_H;
+    const proj = this.renderer.projectToScreen(this.camera, c.target.x, c.target.y, 0.45);
+    const tx = proj ? clamp(proj.x, -w * 0.2, w * 1.2) : w * 0.5;
+    const ty = proj ? clamp(proj.y, 0, viewH) : viewH * 0.5;
+    const s = viewH / 232;
+    const p = c.t / CRUSH_DURATION;
+    const reach = p < 0.34 ? p / 0.34 : (p > 0.72 ? 1 - (p - 0.72) / 0.28 : 1);
+    const squeeze = p >= 0.3 && p <= 0.78 ? Math.sin(((p - 0.3) / 0.48) * Math.PI) : 0;
+    const origins = [
+      [-14 * s, viewH * 0.98],
+      [w + 14 * s, viewH * 0.98],
+      [w * 0.5, h + 12],
+    ];
+    for (let i = 0; i < origins.length; i++) {
+      const ext = clamp(reach - i * 0.05, 0, 1);
+      if (ext <= 0.02) continue;
+      const [ox, oy] = origins[i];
+      const ex = ox + (tx - ox) * ext;
+      const ey = oy + (ty - oy) * ext;
+      const bend = (i - 1) * w * 0.13;
+      tentacle(ctx, {
+        x0: ox, y0: oy,
+        cx: (ox + tx) / 2 + bend, cy: (oy + ty) / 2 - viewH * (0.18 + 0.1 * squeeze),
+        x1: ex, y1: ey,
+        w0: (30 + squeeze * 6) * s,
+        w1: (9 + squeeze * 7) * s,
+        wobble: 3.5 * s,
+        phase: c.phases[i] + this.time * 10,
+      });
+    }
+    if (squeeze > 0.35 && c.damaged) {
+      // gore squirting out of the grip
+      ctx.fillStyle = 'rgba(168,18,18,0.85)';
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2 + c.phases[0];
+        const r = (10 + squeeze * 16) * s;
+        ctx.fillRect(tx + Math.cos(a) * r, ty + Math.sin(a) * r * 0.7, 3 * s, 3 * s);
+      }
+    }
   }
 
   hurtPlayer(amount) {
@@ -641,6 +749,7 @@ export class Game {
     }
 
     this.updateDoors(dt);
+    this.updateCrush(dt);
 
     for (const a of this.actors) a.update(dt);
     this.actors = this.actors.filter((a) => !a.remove);
@@ -699,19 +808,27 @@ export class Game {
 
     r.renderWorld(this.level, this.camera, this.buildSprites(), this.lightBoost);
 
-    // weapon
+    // the pair of guns, one gripped in each bottom corner
     if (this.state === 'playing' || this.state === 'paused') {
       const p = this.player;
       const weapon = this.weapons[p.weapon];
-      const frameIdx = this.weaponAnim ? this.weaponAnim.seq[this.weaponAnim.i][0] : 0;
-      const img = weapon.frames[frameIdx] || weapon.frames[0];
+      const anim = this.weaponAnim;
+      const firingFrame = anim ? anim.seq[anim.i][0] : 0;
       const bob = weaponBobScale();
-      const bobX = Math.sin(p.bob * 1.2) * 9 * bob;
+      const bobX = Math.sin(p.bob * 1.2) * 8 * bob;
       const bobY = Math.abs(Math.cos(p.bob * 2.4)) * 6 * bob;
-      const x = Math.round(w / 2 - img.width / 2 + bobX);
-      const y = Math.round(h - BAR_H - img.height + weaponSink() + bobY + this.recoil * 0.8);
       ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(img, x, y);
+      for (const side of ['left', 'right']) {
+        const firing = !!anim && anim.side === side;
+        const set = weapon.frames[firing ? firingFrame : 0] || weapon.frames[0];
+        const img = set[side];
+        const dir = side === 'left' ? -1 : 1;
+        const kick = firing ? this.recoil * 0.9 : 0;
+        const x = Math.round(side === 'left' ? bobX * dir : w - img.width + bobX * dir);
+        const y = Math.round(h - BAR_H - img.height + weaponSink() + bobY + kick);
+        ctx.drawImage(img, x, y);
+      }
+      if (this.crush) this.drawCrush(ctx, w, h);
     }
 
     this.hud.draw(ctx, w, h, this);

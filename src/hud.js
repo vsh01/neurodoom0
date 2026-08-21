@@ -1,52 +1,79 @@
 // Status bar, messages, overlays and the automap. Everything is drawn into the
 // low-resolution framebuffer so the text is as chunky as the world.
 
-import { makeCanvas, clamp } from './util.js';
+import { makeCanvas, clamp, TAU } from './util.js';
 
 const RED = '#d63a2a';
 const DIM = '#8a8a92';
 const BAR_H = 38;
 
+// The status-bar portrait: you, the thing holding the guns. It loses eyes and
+// leaks as the health drops, which is the same read as DOOM's beaten-up face.
 function buildFace(bucket, hurt, dead) {
   const { canvas, ctx } = makeCanvas(26, 30);
-  const skin = dead ? '#8a5a4a' : '#c79a70';
-  ctx.fillStyle = skin;
-  ctx.fillRect(3, 4, 20, 24);
-  ctx.fillStyle = '#6b4a2c';
-  ctx.fillRect(2, 1, 22, 6);
-  ctx.fillRect(1, 5, 3, 10);
-  ctx.fillRect(22, 5, 3, 10);
-  // eyes: look angrier as health drops
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(6, 11, 5, 4);
-  ctx.fillRect(15, 11, 5, 4);
-  ctx.fillStyle = '#1a1a22';
-  const look = dead ? 0 : (bucket % 3) - 1;
-  ctx.fillRect(8 + look, 12, 2, 3);
-  ctx.fillRect(17 + look, 12, 2, 3);
-  ctx.fillStyle = '#5a3a20';
-  ctx.fillRect(5, 9, 7, 2);
-  ctx.fillRect(14, 9, 7, 2);
-  // mouth
-  ctx.fillStyle = '#4a1010';
-  if (dead) ctx.fillRect(7, 21, 12, 5);
-  else if (bucket <= 1) ctx.fillRect(8, 21, 10, 4);
-  else ctx.fillRect(9, 22, 8, 2);
-  if (!dead && bucket >= 3) {
-    ctx.fillStyle = '#e8e0d0';
-    ctx.fillRect(10, 22, 6, 1);
+  const skin = dead ? '#241c22' : '#17141d';
+  const lit = dead ? '#33262c' : '#2e2639';
+
+  // head tentacles, drooping further as health falls
+  ctx.strokeStyle = lit;
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  const droop = dead ? 9 : (4 - bucket) * 1.8;
+  for (let i = 0; i < 5; i++) {
+    const sx = 4 + i * 4.5;
+    const dir = i < 2 ? -1 : (i > 2 ? 1 : 0);
+    ctx.beginPath();
+    ctx.moveTo(sx, 9);
+    ctx.quadraticCurveTo(sx + dir * 4, 3 + droop * 0.4, sx + dir * 7, 6 + droop);
+    ctx.stroke();
   }
-  // damage
-  const gore = dead ? 9 : (4 - bucket) * 2 + (hurt ? 3 : 0);
-  ctx.fillStyle = '#a01818';
-  for (let i = 0; i < gore; i++) {
-    const x = 3 + ((i * 7 + bucket * 3) % 18);
-    const y = 5 + ((i * 11 + bucket * 5) % 20);
+
+  // head
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.ellipse(13, 17, 11, 12, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = lit;
+  ctx.beginPath();
+  ctx.ellipse(9, 12, 5, 4, -0.5, 0, TAU);
+  ctx.fill();
+
+  // eyes: all three lit at full health, going dark as it drops
+  const eyes = [[8, 15], [18, 15], [13, 21]];
+  const alive = dead ? 0 : Math.max(1, Math.round(bucket * 0.75));
+  const glow = hurt ? '#ff4a2a' : '#c85aff';
+  for (let i = 0; i < eyes.length; i++) {
+    const [ex, ey] = eyes[i];
+    const on = i < alive;
+    ctx.fillStyle = on ? glow : '#2a2130';
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, 3, 2.4, 0, 0, TAU);
+    ctx.fill();
+    if (on) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(ex - 1, ey - 1, 2, 2);
+    }
+  }
+
+  // maw
+  ctx.fillStyle = '#0c0a10';
+  ctx.beginPath();
+  ctx.ellipse(13, 26, dead ? 8 : 5 + (4 - bucket), dead ? 4 : 2.6, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = '#d8cfc0';
+  for (let i = 0; i < 4; i++) ctx.fillRect(10 + i * 2.4, 24.5, 1.4, 2);
+
+  // wounds
+  ctx.fillStyle = '#8c1414';
+  const cuts = dead ? 8 : (4 - bucket) * 2 + (hurt ? 2 : 0);
+  for (let i = 0; i < cuts; i++) {
+    const x = 4 + ((i * 7 + bucket * 3) % 17);
+    const y = 9 + ((i * 11 + bucket * 5) % 17);
     ctx.fillRect(x, y, 2 + (i % 2), 2);
   }
   if (dead) {
-    ctx.fillStyle = '#7a1010';
-    ctx.fillRect(3, 26, 20, 3);
+    ctx.fillStyle = '#6e0f0f';
+    ctx.fillRect(2, 27, 22, 3);
   }
   return canvas;
 }
@@ -215,11 +242,12 @@ export class Hud {
     const cx = w / 2;
     this.drawText(ctx, 'NEURO', cx, h * 0.3, 44, '#d63a2a', 'center');
     this.drawText(ctx, 'DOOM', cx, h * 0.3 + 38, 44, '#e8b02a', 'center');
-    this.drawText(ctx, 'A RAYCAST DESCENT IN 3 LEVELS', cx, h * 0.3 + 58, 9, '#c8c2a8', 'center');
+    this.drawText(ctx, 'YOU ARE THE THING WITH THE TENTACLES', cx, h * 0.3 + 58, 9, '#c8c2a8', 'center');
     const blink = Math.floor(game.time * 2) % 2 === 0;
     if (blink) this.drawText(ctx, 'CLICK OR PRESS ENTER TO PLAY', cx, h * 0.62, 12, '#f0e8c8', 'center');
     this.drawText(ctx, 'WASD MOVE   MOUSE LOOK   CLICK FIRE   E USE   1-3 WEAPONS   TAB MAP', cx, h - 54, 8, '#8a8a92', 'center');
     this.drawText(ctx, 'SHIFT RUN   M MUSIC   P PAUSE   R RESTART LEVEL', cx, h - 42, 8, '#8a8a92', 'center');
+    this.drawText(ctx, 'ANYTHING THAT GETS CLOSE ENOUGH GETS CRUSHED', cx, h - 30, 8, '#8a5aa8', 'center');
   }
 
   paused(ctx, w, h) {

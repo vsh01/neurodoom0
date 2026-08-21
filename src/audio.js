@@ -114,6 +114,15 @@ export class AudioEngine {
         this.tone({ type: 'sawtooth', f0: 140, f1: 300, dur: 0.34, gain: 0.3 * v });
         this.tone({ type: 'square', f0: 90, f1: 190, dur: 0.36, gain: 0.16 * v, detune: 20 });
         break;
+      case 'lash':
+        this.burst({ dur: 0.22, type: 'bandpass', f0: 2600, f1: 500, q: 1.6, gain: 0.28 * v });
+        this.tone({ type: 'sine', f0: 520, f1: 140, dur: 0.2, gain: 0.12 * v });
+        break;
+      case 'crush':
+        this.burst({ dur: 0.34, type: 'lowpass', f0: 1400, f1: 90, gain: 0.7 * v });
+        this.burst({ dur: 0.22, type: 'bandpass', f0: 620, f1: 180, q: 2.4, gain: 0.5 * v, delay: 0.04 });
+        this.tone({ type: 'sine', f0: 130, f1: 34, dur: 0.32, gain: 0.4 * v });
+        break;
       case 'melee':
         this.burst({ dur: 0.18, type: 'bandpass', f0: 500, f1: 120, q: 2, gain: 0.5 * v });
         break;
