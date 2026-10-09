@@ -2,100 +2,222 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#080f21">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050505">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>ГравиШар — рисуй и направляй шарик</title>
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>ГравиШар — рисуй путь</title>
 <style>
-:root{color-scheme:dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#080f21;color:#eef6ff}*{box-sizing:border-box}html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}button{font:inherit;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}button:active{transform:scale(.97)}button:disabled{opacity:.38;cursor:default}#app{width:100%;height:100%;height:100dvh;max-width:650px;margin:auto;display:flex;flex-direction:column;overflow:hidden;background:linear-gradient(160deg,#14213d 0%,#0a1428 85%);padding:calc(env(safe-area-inset-top) + 9px) 10px calc(env(safe-area-inset-bottom) + 7px);gap:7px;touch-action:pan-x}
-.top{display:flex;align-items:center;justify-content:space-between;gap:8px}.brand{font-weight:950;font-size:18px;letter-spacing:-.8px;white-space:nowrap}.brand span{color:#58e3ce}.levelpill{padding:7px 10px;border:1px solid #314e69;border-radius:11px;background:#1e3552;font-weight:800;font-size:11px;letter-spacing:.5px;white-space:nowrap}.stats{display:grid;grid-template-columns:1.15fr 1fr .9fr;gap:6px}.stat{min-width:0;border:1px solid #2a3c58;border-radius:11px;background:#14243e;padding:6px 10px}.statname{font-size:10px;color:#9badc8}.statval{font-size:16px;font-weight:850;margin-top:2px;font-variant-numeric:tabular-nums}.meter{height:4px;background:#32425e;border-radius:9px;overflow:hidden;margin-top:4px}.meter>div{height:100%;background:linear-gradient(90deg,#36cbb0,#73f2de);width:100%}.tabs,.tools,.actions{display:grid;gap:6px}.tabs{grid-template-columns:1fr 1fr}.tools{grid-template-columns:repeat(3,minmax(0,1fr))}.actions{grid-template-columns:repeat(4,minmax(0,1fr))}.btn{border:1px solid #385072;border-radius:10px;background:#1c3050;color:#c7d9ef;min-height:38px;font-size:12px;font-weight:780;padding:8px 4px;white-space:nowrap}.btn.active{background:#21576a;color:#f1ffff;border-color:#55dccc;box-shadow:inset 0 0 0 1px #368e92}.tool.active{background:#284468;border-color:#74bde8}.btn.primary{background:linear-gradient(115deg,#53edcc,#27c6ac);border-color:#65e9d5;color:#083b3b;font-weight:950}.tools .btn{min-height:40px}.board{flex:1;min-height:0;position:relative;border:1px solid #314968;background:#081326;border-radius:13px;overflow:hidden;touch-action:none!important;overscroll-behavior:none}canvas{display:block;width:100%;height:100%;touch-action:none!important;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none}.bottom{display:flex;justify-content:space-between;gap:6px;min-height:18px;align-items:center}.tip{font-size:10px;color:#9eb6cf;line-height:1.25;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.badge{font-size:10px;color:#ffd482;white-space:nowrap}.info{font-size:10px;color:#758ba7;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.status{font-size:11px;color:#d1e4f7;text-align:center;line-height:1.2;min-height:13px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
-@media(min-width:550px){#app{padding-left:18px;padding-right:18px;border-left:1px solid #203754;border-right:1px solid #203754}.brand{font-size:22px}.btn{min-height:44px}.tools .btn{min-height:48px}}@media(max-height:620px){#app{gap:4px;padding-top:calc(env(safe-area-inset-top) + 3px);padding-bottom:calc(env(safe-area-inset-bottom) + 2px)}.stats .stat{padding:4px 8px}.tools .btn,.btn{min-height:30px;padding:5px 3px}.info{display:none}.brand{font-size:15px}}@media(prefers-reduced-motion:reduce){button:active{transform:none}}
+:root{color-scheme:dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#050505;color:#f5f5f5}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
+button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+button:active{transform:scale(.985)}button:disabled{opacity:.3;cursor:default}
+#app{height:100vh;height:100dvh;width:100%;max-width:620px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 12px) 12px calc(env(safe-area-inset-bottom) + 12px);display:flex;flex-direction:column;gap:13px;background:#050505;overflow:hidden}
+header{display:flex;align-items:center;justify-content:space-between;min-height:30px;padding:0 3px}
+.logo{font-size:15px;letter-spacing:.19em;font-weight:800}
+.level{font-size:12px;letter-spacing:.05em;color:#888}
+.board{flex:1;min-height:0;position:relative;background:#080808;border:1px solid #262626;border-radius:18px;overflow:hidden;touch-action:none!important;overscroll-behavior:none}
+canvas{width:100%;height:100%;display:block;touch-action:none!important;overscroll-behavior:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.controls{display:grid;grid-template-columns:1fr 1fr 1.55fr;gap:9px;min-height:49px}
+.control{min-width:0;min-height:49px;border:1px solid #353535;border-radius:13px;background:#171717;color:#e9e9e9;font-size:13px;font-weight:650}
+.control.primary{background:#f5f5f5;color:#111;border-color:#f5f5f5;font-size:14px;font-weight:800}
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,.77);display:flex;align-items:center;justify-content:center;padding:22px;z-index:2;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.overlay[hidden]{display:none}
+.modal{width:100%;max-width:325px;padding:28px 22px 22px;background:#121212;border:1px solid #383838;border-radius:20px;text-align:center;box-shadow:0 16px 64px #0009}
+.result-mark{font-size:32px;line-height:1.2;color:#f4f4f4}
+.modal h2{font-size:23px;line-height:1.25;letter-spacing:-.04em;margin:13px 0 7px}
+.modal p{font-size:13px;line-height:1.55;color:#999;margin:0 0 24px}
+.modal-actions{display:flex;gap:9px}
+.modal-actions button{flex:1;min-width:0;padding:13px 10px;border:1px solid #454545;background:#232323;border-radius:11px;color:#fff;font-size:13px;font-weight:750}
+.modal-actions .next{background:#f5f5f5;color:#111;border-color:#f5f5f5}
+@media(min-width:540px){#app{padding-left:17px;padding-right:17px}.control{min-height:55px}}
+@media(max-height:570px){#app{gap:7px;padding-top:calc(env(safe-area-inset-top) + 6px);padding-bottom:calc(env(safe-area-inset-bottom) + 6px)}.controls,.control{min-height:39px}.modal{padding:18px}}
 </style>
 </head>
 <body>
-<main id="app" aria-label="ГравиШар: мобильная физическая головоломка">
- <div class="top"><div class="brand"><span>◉</span> ГРАВИШАР <small style="font-size:10px;color:#819cbb">2.2</small></div><div class="levelpill" id="level">УРОВЕНЬ 01</div></div>
- <div class="stats"><div class="stat"><div class="statname">✎ ЧЕРНИЛА</div><div id="ink" class="statval">460</div><div class="meter"><div id="meterFill"></div></div></div><div class="stat"><div class="statname">★ ЗВЁЗДЫ</div><div id="stars" class="statval" style="color:#ffe18a">0 / 3</div></div><div class="stat"><div class="statname">✦ ОЧКИ</div><div id="score" class="statval">0</div></div></div>
- <div class="tabs"><button class="btn active" id="drag">〰 Рисовать пальцем</button><button class="btn" id="tap">☝ По двум точкам</button></div>
- <div class="tools"><button class="btn tool active" data-kind="rail">〰 Рельс</button><button class="btn tool" data-kind="spring">⌁ Пружина</button><button class="btn tool" data-kind="boost">ϟ Ускоритель</button></div>
- <section class="board" id="board"><canvas id="canvas" aria-label="Здесь пальцем рисуют линии для шарика"></canvas></section>
- <div class="actions"><button class="btn primary" style="grid-column:span 2" id="play">▶ Запуск</button><button class="btn" id="pulse">↗ Толчок ×2</button><button class="btn" id="undo">↶ Отмена</button></div>
- <div class="actions"><button class="btn" id="retry">↻ Повтор</button><button class="btn" id="clear">⌫ Очистить</button><button class="btn" style="grid-column:span 2" id="shuffle">🎲 Новый уровень</button></div>
- <div class="status" id="status" aria-live="polite">Проведи пальцем, чтобы нарисовать рельс</div>
- <div class="bottom"><div class="tip">🟢 +чернила · 🔷 щит · 🟣 импульс · 🔴 шипы</div><div id="record" class="badge">🏆 0</div></div>
+<main id="app">
+ <header><div class="logo">ГРАВИШАР</div><div class="level" id="level">01</div></header>
+ <section id="board" class="board" aria-label="Игровое поле">
+  <canvas id="canvas" aria-label="Рисуйте пальцем линии, направляющие шарик в круг"></canvas>
+  <div id="overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="resultTitle" hidden>
+   <div class="modal">
+    <div class="result-mark" id="resultMark">●</div>
+    <h2 id="resultTitle">Результат</h2>
+    <p id="resultText"></p>
+    <div class="modal-actions" id="modalActions">
+     <button id="again">Повторить</button>
+     <button class="next" id="next">Дальше →</button>
+    </div>
+   </div>
+  </div>
+ </section>
+ <nav class="controls" aria-label="Управление игрой">
+  <button class="control" id="undo">↶ Отмена</button>
+  <button class="control" id="clear">Очистить</button>
+  <button class="control primary" id="play">▶ Запуск</button>
+ </nav>
 </main>
 <script>
 'use strict';
 (()=>{
- const W=360,H=520,R=8, $=id=>document.getElementById(id),canvas=$('canvas'),ctx=canvas.getContext('2d',{alpha:false});
- const UI={level:$('level'),ink:$('ink'),meter:$('meterFill'),stars:$('stars'),score:$('score'),status:$('status'),record:$('record'),play:$('play'),pulse:$('pulse')};
- const colors={rail:'#82dcff',spring:'#ffc16b',boost:'#d2a4ff'},costs={rail:1,spring:1.4,boost:1.8};
- const clamp=(n,a,b)=>Math.min(b,Math.max(a,n)),length=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
- const randGen=(a)=>()=>{a|=0;a=(a+0x6d2b79f5)|0;let t=Math.imul(a^a>>>15,1|a);t^=t+Math.imul(t^t>>>7,61|t);return ((t^t>>>14)>>>0)/4294967296};
- let level=1,score=0,best=0,mode='drag',kind='rail',state='ready',message='',inkMax=460,ink=460,wind=0,time=0,seconds=0,shields=0,pulses=2,immune=0;
- let spawn,goal,ball,strokes=[],platforms=[],bumpers=[],hazards=[],stars=[],bonuses=[],trail=[],tapAnchor=null,active=null,pointer=null;
- try{level=Math.max(1,Math.floor(+localStorage.getItem('gravishar-level')||1));best=Math.max(0,+localStorage.getItem('gravishar-best')||0)}catch(e){}
- function nearest(x,y,a,b){let dx=b.x-a.x,dy=b.y-a.y;const t=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);return{x:a.x+dx*t,y:a.y+dy*t}}
- function setMessage(s){message=s;refresh()}
- function refresh(){UI.level.textContent='УРОВЕНЬ '+String(level).padStart(2,'0');UI.ink.textContent=Math.floor(ink)+' / '+Math.floor(inkMax);UI.meter.style.width=(100*ink/inkMax)+'%';UI.stars.textContent=stars.filter(s=>s.got).length+' / 3';UI.score.textContent=score.toLocaleString('ru');UI.status.textContent=message+(shields?' · 🛡 Щит':'');UI.record.textContent='🏆 '+best.toLocaleString('ru');UI.play.textContent=state==='running'?'Ⅱ Пауза':state==='paused'?'▶ Продолжить':state==='won'?'➜ Дальше':state==='lost'?'↻ Снова':'▶ Запуск';UI.pulse.disabled=state!=='running'||!pulses;UI.pulse.textContent='↗ Толчок ×'+pulses;$('undo').disabled=!strokes.length&&!tapAnchor;$('clear').disabled=!strokes.length;document.querySelectorAll('[data-kind]').forEach(b=>b.classList.toggle('active',b.dataset.kind===kind));$('drag').classList.toggle('active',mode==='drag');$('tap').classList.toggle('active',mode==='tap')}
- function resetBall(){ball={x:spawn.x,y:spawn.y,vx:0,vy:0,r:R};trail=[];seconds=0;immune=0;shields=0;pulses=2;stars.forEach(s=>s.got=false);bonuses.forEach(b=>b.got=false);tapAnchor=null;active=null;pointer=null;state='ready';setMessage('Нарисуй маршрут и нажми «Запуск»')}
- function newLevel(){const rand=randGen(((Math.random()*0xffffffff)>>>0)^Math.imul(level,173771));spawn={x:level%2?45:315,y:54};goal={x:level%2?310:50,y:485};platforms=[];bumpers=[];hazards=[];stars=[];bonuses=[];strokes=[];inkMax=460+Math.min(90,Math.max(0,level-1)*12);ink=inkMax;
-  const count=Math.min(4,2+Math.floor((level-1)/3));const rnd=(a,b)=>a+(b-a)*rand();
-  for(let i=0;i<count;i++){const width=rnd(71,118),x=rnd(22,W-width-22),y=145+i*(245/Math.max(1,count-1))+rnd(-15,15),angle=rnd(-20,20);platforms.push({a:{x,y:y-angle/2},b:{x:x+width,y:y+angle/2}})}
-  function freePoint(y){let p;for(let i=0;i<65;i++){p={x:rnd(29,331),y:clamp(y+rnd(-20,20),85,450)};if(length(p,spawn)<40||length(p,goal)<40)continue;if(platforms.some(s=>length(p,nearest(p.x,p.y,s.a,s.b))<28))continue;if([...bumpers,...hazards,...stars,...bonuses].some(s=>length(p,s)<32))continue;return p}return p||{x:180,y}}
-  for(let i=0;i<Math.min(3,1+Math.floor((level-1)/3));i++)bumpers.push({...freePoint(210+i*78),r:12});
-  if(level>=3)for(let i=0;i<Math.min(3,1+Math.floor((level-3)/3));i++)hazards.push({...freePoint(275+i*62),r:12});
-  for(let i=0;i<3;i++)stars.push({...freePoint(118+i*124),got:false});
-  for(let i=0;i<(level===1?1:2);i++)bonuses.push({...freePoint(190+i*160),type:level===1?'ink':['ink','shield','boost'][(level+i)%3],got:false});
-  wind=level>=4&&rand()<.7?(rand()<.5?-32:32):0;resetBall()
+const $=id=>document.getElementById(id);
+const canvas=$('canvas'),ctx=canvas.getContext('2d',{alpha:false});
+const W=360,H=520,R=8;
+const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const rng=seed=>()=>{seed=(seed+0x6d2b79f5)|0;let t=Math.imul(seed^seed>>>15,1|seed);t^=t+Math.imul(t^t>>>7,61|t);return((t^t>>>14)>>>0)/4294967296};
+let level=1,phase='ready',clock=0,elapsed=0,strokes=[],platforms=[],hazards=[],stars=[],trail=[];
+let spawn={x:46,y:52},goal={x:309,y:480},ball={x:46,y:52,vx:0,vy:0};
+let drawing=null,pointerId=null,tapStart=null,hasDrawn=false;
+try{level=Math.max(1,Math.floor(Number(localStorage.getItem('gravishar-level'))||1))}catch(_){ }
+function nearest(x,y,a,b){const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);return{x:a.x+dx*t,y:a.y+dy*t}}
+function makeLevel(){
+ const random=rng((Math.random()*0xffffffff>>>0)^Math.imul(level,173771));
+ const between=(a,b)=>a+(b-a)*random();
+ spawn={x:level%2?46:314,y:54};goal={x:level%2?308:52,y:478};
+ strokes=[];platforms=[];hazards=[];stars=[];
+ let count=Math.min(5,2+Math.floor((level-1)/3));
+ for(let i=0;i<count;i++){
+  const length=between(72,116),x=between(20,W-length-20),y=155+i*240/Math.max(1,count-1)+between(-14,14),angle=between(-24,24);
+  platforms.push({a:{x,y:y-angle/2},b:{x:x+length,y:y+angle/2}});
  }
- function coords(e){const r=canvas.getBoundingClientRect();return {x:clamp((e.clientX-r.left)*W/r.width,2,W-2),y:clamp((e.clientY-r.top)*H/r.height,2,H-2)}}
- function addStroke(points){if(points.length<2)return false;const rate=costs[kind];let total=0;for(let i=1;i<points.length;i++)total+=length(points[i-1],points[i]);if(total<5||ink<5)return false;if(total*rate>ink){let allowed=ink/rate,res=[points[0]];for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i],d=length(a,b);if(d<=allowed){res.push(b);allowed-=d}else{let p=allowed/d;res.push({x:a.x+(b.x-a.x)*p,y:a.y+(b.y-a.y)*p});break}}points=res;total=0;for(let i=1;i<points.length;i++)total+=length(points[i-1],points[i])}if(total<5)return false;let cost=rate*total;ink-=cost;strokes.push({points,kind,cost,lastHit:-99});return true}
- function down(e){if(state==='won')return;e.preventDefault();if(pointer!==null)return;const p=coords(e);if(mode==='tap'){if(!tapAnchor){tapAnchor=p;setMessage('Теперь нажми конец отрезка')}else{const ok=addStroke([tapAnchor,p]);tapAnchor=null;setMessage(ok?'Линия построена':'Мало чернил или слишком короткая линия')}return}pointer=e.pointerId;try{canvas.setPointerCapture(pointer)}catch(e){}active={kind,points:[p],cost:0,lastHit:-99};strokes.push(active)}
- function move(e){if(pointer!==e.pointerId||!active)return;e.preventDefault();const p=coords(e),points=active.points,a=points[points.length-1],d=length(a,p);if(d<3||ink<2)return;const amount=Math.min(d,ink/costs[active.kind]);if(amount<1.5)return;const k=amount/d;points.push({x:a.x+(p.x-a.x)*k,y:a.y+(p.y-a.y)*k});const cost=amount*costs[active.kind];active.cost+=cost;ink=Math.max(0,ink-cost);refresh()}
- function up(e){if(pointer!==e.pointerId)return;e.preventDefault();pointer=null;if(active&&active.cost<5){ink=Math.min(inkMax,ink+active.cost);strokes=strokes.filter(s=>s!==active)}active=null;refresh()}
- canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',move);canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);canvas.addEventListener('contextmenu',e=>e.preventDefault());
- for(const name of ['touchstart','touchmove','gesturestart']){canvas.addEventListener(name,e=>{if(e.cancelable)e.preventDefault()},{passive:false});$('board').addEventListener(name,e=>{if(e.cancelable)e.preventDefault()},{passive:false})}
- for(const b of document.querySelectorAll('[data-kind]'))b.addEventListener('click',()=>{kind=b.dataset.kind;tapAnchor=null;refresh()});
- $('drag').addEventListener('click',()=>{mode='drag';tapAnchor=null;setMessage('Веди пальцем, чтобы рисовать')});
- $('tap').addEventListener('click',()=>{mode='tap';tapAnchor=null;setMessage('Нажми начало и конец прямой')});
- UI.play.addEventListener('click',()=>{if(state==='won'){level++;try{localStorage.setItem('gravishar-level',level)}catch(e){}newLevel();return}if(state==='lost')resetBall();state=state==='running'?'paused':'running';setMessage(state==='paused'?'Пауза. Можно дорисовать':'Шарик движется — рисуй на ходу!')});
- $('undo').addEventListener('click',()=>{if(tapAnchor)tapAnchor=null;else if(strokes.length)ink=Math.min(inkMax,ink+strokes.pop().cost);setMessage('Отменено')});
- $('clear').addEventListener('click',()=>{strokes=[];ink=inkMax;resetBall();setMessage('Поле очищено')});
- $('retry').addEventListener('click',()=>{resetBall();setMessage('Повтори с теми же линиями')});
- $('shuffle').addEventListener('click',()=>{newLevel();setMessage('Сгенерирован новый уровень')});
- UI.pulse.addEventListener('click',()=>{if(state!=='running'||pulses<=0)return;pulses--;ball.vx+=(goal.x>ball.x?1:-1)*160;ball.vy-=215;setMessage('↗ Импульс!')});
- function hitSegment(a,b,type,owner){const q=nearest(ball.x,ball.y,a,b),dx=ball.x-q.x,dy=ball.y-q.y,d=Math.hypot(dx,dy),radius=ball.r+3.2;if(d>=radius)return;let nx,ny;if(d>1e-6){nx=dx/d;ny=dy/d}else{const len=length(a,b)||1;nx=-(b.y-a.y)/len;ny=(b.x-a.x)/len;if(nx*ball.vx+ny*ball.vy>0){nx=-nx;ny=-ny}}ball.x+=nx*(radius-d);ball.y+=ny*(radius-d);const vn=ball.vx*nx+ball.vy*ny;if(vn>=0)return;let restitution=type==='spring'?.9:type==='boost'?.2:.13;ball.vx-=(1+restitution)*vn*nx;ball.vy-=(1+restitution)*vn*ny;if(owner&&seconds-owner.lastHit>.28){if(type==='spring'){owner.lastHit=seconds;ball.vx+=nx*100;ball.vy+=ny*150}else if(type==='boost'){owner.lastHit=seconds;const len=length(a,b)||1;ball.vx+=(b.x-a.x)/len*205;ball.vy+=(b.y-a.y)/len*205-42}}}
- function hitBumper(p){let dx=ball.x-p.x,dy=ball.y-p.y,d=Math.hypot(dx,dy);if(d>=ball.r+p.r)return;if(d<1e-6){dx=1;dy=0;d=1}const nx=dx/d,ny=dy/d;ball.x=p.x+nx*(p.r+ball.r);ball.y=p.y+ny*(p.r+ball.r);const vn=ball.vx*nx+ball.vy*ny;if(vn<0){ball.vx-=2.15*vn*nx;ball.vy-=2.15*vn*ny}ball.vx+=nx*10;ball.vy+=ny*10}
- function lose(m){state='lost';setMessage(m)}
- function win(){state='won';const gain=200+stars.filter(s=>s.got).length*100+Math.round(ink/10);score+=gain;if(score>best){best=score;try{localStorage.setItem('gravishar-best',best)}catch(e){}}setMessage('Победа! +'+gain+' очков ★')}
- function physics(dt){seconds+=dt;ball.vx+=wind*dt;ball.vy+=535*dt;let sp=Math.hypot(ball.vx,ball.vy);if(sp>720){ball.vx*=720/sp;ball.vy*=720/sp}ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;ball.vx*=.9995;if(ball.x<10){ball.x=10;ball.vx=Math.abs(ball.vx)*.7}if(ball.x>350){ball.x=350;ball.vx=-Math.abs(ball.vx)*.7}if(ball.y<10){ball.y=10;ball.vy=Math.abs(ball.vy)*.7}
- for(const p of platforms)hitSegment(p.a,p.b,'solid');for(const s of strokes){for(let i=1;i<s.points.length;i++){const a=s.points[i-1],b=s.points[i];if(ball.x<Math.min(a.x,b.x)-14||ball.x>Math.max(a.x,b.x)+14||ball.y<Math.min(a.y,b.y)-14||ball.y>Math.max(a.y,b.y)+14)continue;hitSegment(a,b,s.kind,s)}}for(const b of bumpers)hitBumper(b);
- for(const h of hazards)if(length(ball,h)<ball.r+h.r-1&&seconds>immune){if(shields){shields--;immune=seconds+1;ball.vy=-215;ball.vx+=(ball.x>h.x?1:-1)*100;setMessage('🛡 Щит спас шарик!')}else{lose('💥 Шипы! Исправь маршрут');return}}
- for(const s of stars)if(!s.got&&length(ball,s)<19){s.got=true;refresh()}for(const b of bonuses)if(!b.got&&length(ball,b)<21){b.got=true;if(b.type==='ink'){inkMax+=95;ink+=95;setMessage('🟢 +95 чернил!')}else if(b.type==='shield'){shields++;setMessage('🔷 Щит получен')}else{ball.vx+=(goal.x>ball.x?1:-1)*190;ball.vy-=160;setMessage('🟣 Турбо!')}}
- if(length(ball,goal)<23){win();return}if(ball.y>H+15){lose('Шарик упал! Нарисуй другой путь');return}trail.push({x:ball.x,y:ball.y});if(trail.length>26)trail.shift()}
- function dot(x,y,r,fill){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill()}
- function ln(a,b,w,c){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle=c;ctx.lineWidth=w;ctx.lineCap='round';ctx.stroke()}
- function star(x,y,r){ctx.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,k=i%2?r*.45:r;const xx=x+Math.cos(a)*k,yy=y+Math.sin(a)*k;i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy)}ctx.closePath()}
- function draw(){const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#102344');bg.addColorStop(1,'#071426');ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);for(let x=0;x<=W;x+=30)ln({x,y:0},{x,y:H},.65,'rgba(146,191,232,.075)');for(let y=0;y<=H;y+=30)ln({x:0,y},{x:W,y},.65,'rgba(146,191,232,.075)');for(let i=0;i<32;i++)dot((i*119.7+32)%W,(i*87.3+69)%H,i%6===0?1.3:.7,'rgba(168,208,254,.16)');
- ctx.textAlign='center';ctx.font='bold 9px system-ui';ctx.fillStyle='#a2bada';ctx.fillText('СТАРТ',spawn.x,spawn.y-30);ln({x:spawn.x-16,y:spawn.y-20},{x:spawn.x+16,y:spawn.y-20},3,'#719cce');
- ctx.save();ctx.shadowColor='#5affd4';ctx.shadowBlur=15;dot(goal.x,goal.y,27,'rgba(40,235,186,.14)');ctx.strokeStyle='#54ffd0';ctx.lineWidth=4;ctx.beginPath();ctx.arc(goal.x,goal.y,22,0,Math.PI*2);ctx.stroke();ctx.translate(goal.x,goal.y);ctx.rotate(time*.45);ctx.setLineDash([3,7]);ctx.strokeStyle='#c2fff0';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,30,0,Math.PI*2);ctx.stroke();ctx.restore();ctx.fillStyle='#98fbe1';ctx.fillText('ПОРТАЛ',goal.x,goal.y-39);
- for(const s of platforms){ln(s.a,s.b,11,'#304765');ln(s.a,s.b,6,'#8caacc');dot(s.a.x,s.a.y,4,'#d0e6ff');dot(s.b.x,s.b.y,4,'#d0e6ff')}
- for(const p of bumpers){ctx.save();ctx.shadowColor='#d18bff';ctx.shadowBlur=12;dot(p.x,p.y,p.r,'#9c63dd');ctx.shadowBlur=0;dot(p.x,p.y,6,'#553d8e');dot(p.x,p.y,3,'#f7d7ff');ctx.restore()}
- for(const h of hazards){ctx.save();ctx.translate(h.x,h.y);ctx.rotate(time*.85);ctx.shadowColor='#ff5376';ctx.shadowBlur=10;ctx.fillStyle='#ff5375';ctx.beginPath();for(let i=0;i<20;i++){const a=i*Math.PI/10,r=i%2?8:16;i?ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r):ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r)}ctx.closePath();ctx.fill();ctx.restore()}
- for(const s of stars){if(s.got)continue;ctx.save();ctx.shadowColor='#ffd975';ctx.shadowBlur=13;star(s.x,s.y,11);ctx.fillStyle='#ffdc75';ctx.fill();ctx.restore()}
- for(const b of bonuses){if(b.got)continue;const c=b.type==='ink'?'#67e8a9':b.type==='shield'?'#76bdff':'#d59afa';ctx.save();ctx.shadowColor=c;ctx.shadowBlur=12;dot(b.x,b.y,12,c);ctx.shadowBlur=0;dot(b.x,b.y,9,'#193452');ctx.fillStyle=c;ctx.font='bold 16px system-ui';ctx.textBaseline='middle';ctx.fillText(b.type==='ink'?'+':b.type==='shield'?'◆':'ϟ',b.x,b.y);ctx.restore()}
- for(const s of strokes){if(s.points.length<2)continue;ctx.save();ctx.beginPath();ctx.moveTo(s.points[0].x,s.points[0].y);for(let i=1;i<s.points.length;i++)ctx.lineTo(s.points[i].x,s.points[i].y);ctx.strokeStyle=colors[s.kind];ctx.lineWidth=5;ctx.lineCap='round';ctx.lineJoin='round';ctx.shadowColor=colors[s.kind];ctx.shadowBlur=10;ctx.stroke();ctx.shadowBlur=0;ctx.strokeStyle='rgba(255,255,255,.52)';ctx.lineWidth=1.4;ctx.stroke();ctx.restore();if(s.kind==='boost'&&s.points.length===2){let a=s.points[0],b=s.points[1],ang=Math.atan2(b.y-a.y,b.x-a.x),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};ctx.save();ctx.translate(mid.x,mid.y);ctx.rotate(ang);ln({x:-5,y:-3},{x:2,y:0},2,'#fff');ln({x:-5,y:3},{x:2,y:0},2,'#fff');ctx.restore()}}
- if(tapAnchor){ctx.save();ctx.shadowColor='#fff';ctx.shadowBlur=11;dot(tapAnchor.x,tapAnchor.y,5,'#ecffff');ctx.restore();ctx.strokeStyle='#75d9ff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(tapAnchor.x,tapAnchor.y,12,0,Math.PI*2);ctx.stroke()}
- for(let i=0;i<trail.length;i++)dot(trail[i].x,trail[i].y,2+3*i/trail.length,`rgba(133,212,255,${.22*i/trail.length})`);
- ctx.save();ctx.shadowColor='#9de4ff';ctx.shadowBlur=14;const fill=ctx.createRadialGradient(ball.x-3,ball.y-3,0,ball.x,ball.y,9);fill.addColorStop(0,'#fff');fill.addColorStop(.4,'#e4fcff');fill.addColorStop(1,'#72bded');dot(ball.x,ball.y,R,fill);ctx.restore();if(shields){ctx.strokeStyle='#8acbff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(ball.x,ball.y,14,0,Math.PI*2);ctx.stroke()}
- if(wind){ctx.font='bold 10px system-ui';ctx.fillStyle='#a7bddc';ctx.fillText(wind>0?'→ ВЕТЕР':'← ВЕТЕР',W/2,18)}
- if(state==='won'||state==='lost'||(state==='ready'&&strokes.length===0)){ctx.save();ctx.fillStyle='rgba(14,30,56,.94)';ctx.strokeStyle=state==='won'?'#5fe3c6':'#496585';ctx.lineWidth=1.3;ctx.beginPath();ctx.roundRect(44,217,272,84,14);ctx.fill();ctx.stroke();ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='bold 17px system-ui';ctx.fillText(state==='won'?'★ УРОВЕНЬ ПРОЙДЕН':state==='lost'?'↻ ЕЩЁ ОДНА ПОПЫТКА':'✏ ПОСТРОЙ МАРШРУТ',180,249);ctx.font='11px system-ui';ctx.fillStyle='#bed3e9';ctx.fillText(state==='won'?'Жми «Дальше»':state==='lost'?'Исправь рельсы и повтори':'Нарисуй линию от шарика к порталу',180,273);ctx.restore()}
+ function freePoint(y){let p={x:W/2,y};for(let i=0;i<60;i++){
+  p={x:between(33,327),y:clamp(y+between(-19,19),75,450)};
+  if(distance(p,spawn)<45||distance(p,goal)<48)continue;
+  if(platforms.some(s=>distance(p,nearest(p.x,p.y,s.a,s.b))<30))continue;
+  if([...hazards,...stars].some(s=>distance(p,s)<36))continue;
+  return p;
+ }return p}
+ if(level>=3)for(let i=0;i<Math.min(3,1+Math.floor((level-3)/4));i++)hazards.push({...freePoint(264+i*80),r:12});
+ for(let i=0;i<3;i++)stars.push({...freePoint(121+i*130),got:false});
+ resetRun(false);
+}
+function resetRun(keepLines=true){
+ if(!keepLines)strokes=[];
+ ball={x:spawn.x,y:spawn.y,vx:0,vy:0};elapsed=0;trail=[];
+ stars.forEach(s=>s.got=false);
+ phase='ready';drawing=null;pointerId=null;tapStart=null;
+ $('overlay').hidden=true;$('play').disabled=false;$('play').textContent='▶ Запуск';
+ controls();
+}
+function controls(){
+ const lock=phase==='running';
+ $('undo').disabled=lock||(!strokes.length&&!tapStart);
+ $('clear').disabled=lock||!strokes.length;
+ $('play').disabled=lock;
+ $('level').textContent=String(level).padStart(2,'0');
+}
+function finish(won,reason){
+ phase=won?'won':'lost';
+ const collected=stars.filter(s=>s.got).length;
+ $('resultMark').textContent=won?'✦':'○';
+ $('resultTitle').textContent=won?'Уровень пройден':'Не получилось';
+ $('resultText').textContent=won?`Звёзды: ${collected} из 3 · Время: ${elapsed.toFixed(1)} с`:reason;
+ $('next').hidden=!won;
+ $('overlay').hidden=false;
+ controls();
+}
+function coords(e){const r=canvas.getBoundingClientRect();return{x:clamp((e.clientX-r.left)*W/r.width,3,W-3),y:clamp((e.clientY-r.top)*H/r.height,3,H-3)}}
+function addSegment(a,b){if(distance(a,b)<6)return;strokes.push({points:[a,b]});hasDrawn=true;controls()}
+function down(e){
+ if(phase!=='ready'||pointerId!==null)return;
+ e.preventDefault();pointerId=e.pointerId;
+ try{canvas.setPointerCapture(pointerId)}catch(_){ }
+ drawing={points:[coords(e)],moved:false};
+}
+function move(e){
+ if(e.pointerId!==pointerId||!drawing)return;
+ e.preventDefault();const p=coords(e),arr=drawing.points,a=arr[arr.length-1];
+ if(distance(a,p)<3)return;
+ if(!drawing.moved){drawing.moved=true;tapStart=null;strokes.push(drawing);}
+ arr.push(p);hasDrawn=true;controls();
+}
+function up(e){
+ if(e.pointerId!==pointerId)return;
+ e.preventDefault();pointerId=null;
+ if(drawing&&!drawing.moved){
+  const p=drawing.points[0];
+  if(tapStart){addSegment(tapStart,p);tapStart=null}else tapStart=p;
  }
- function resize(){const r=canvas.getBoundingClientRect();if(!r.width||!r.height)return;const dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=Math.max(1,Math.round(r.width*dpr));canvas.height=Math.max(1,Math.round(r.height*dpr));ctx.setTransform(canvas.width/W,0,0,canvas.height/H,0,0)}
- let last=performance.now(),acc=0;function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;time+=dt;if(state==='running'){acc+=dt;let n=0;while(acc>=1/120&&n<7&&state==='running'){physics(1/120);acc-=1/120;n++}if(n>=7)acc=0}else acc=0;draw();requestAnimationFrame(frame)}
- newLevel();resize();if(typeof ResizeObserver!=='undefined')new ResizeObserver(resize).observe($('board'));else window.addEventListener('resize',resize);requestAnimationFrame(frame);
+ drawing=null;controls();
+}
+for(const name of ['pointerdown'])canvas.addEventListener(name,down);
+canvas.addEventListener('pointermove',move);
+canvas.addEventListener('pointerup',up);
+canvas.addEventListener('pointercancel',up);
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+for(const node of [canvas,$('board')])for(const name of ['touchstart','touchmove','gesturestart'])node.addEventListener(name,e=>{if(e.cancelable)e.preventDefault()},{passive:false});
+$('undo').addEventListener('click',()=>{if(phase!=='ready')return;if(tapStart)tapStart=null;else strokes.pop();controls()});
+$('clear').addEventListener('click',()=>{if(phase!=='ready')return;strokes=[];tapStart=null;controls()});
+$('play').addEventListener('click',()=>{if(phase!=='ready')return;tapStart=null;phase='running';controls()});
+$('again').addEventListener('click',()=>resetRun(true));
+$('next').addEventListener('click',()=>{if(phase!=='won')return;level++;try{localStorage.setItem('gravishar-level',String(level))}catch(_){ }makeLevel()});
+function hitSegment(a,b){
+ const q=nearest(ball.x,ball.y,a,b),dx=ball.x-q.x,dy=ball.y-q.y,d=Math.hypot(dx,dy),radius=R+3.3;
+ if(d>=radius)return;
+ let nx,ny;
+ if(d>1e-6){nx=dx/d;ny=dy/d}else{
+  const l=distance(a,b)||1;nx=-(b.y-a.y)/l;ny=(b.x-a.x)/l;
+  if(nx*ball.vx+ny*ball.vy>0){nx=-nx;ny=-ny}
+ }
+ ball.x+=nx*(radius-d);ball.y+=ny*(radius-d);
+ const dot=ball.vx*nx+ball.vy*ny;
+ if(dot<0){ball.vx-=1.13*dot*nx;ball.vy-=1.13*dot*ny;ball.vx*=.998;}
+}
+function physics(dt){
+ elapsed+=dt;ball.vy+=540*dt;
+ const speed=Math.hypot(ball.vx,ball.vy);
+ if(speed>760){ball.vx*=760/speed;ball.vy*=760/speed}
+ ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;
+ ball.vx*=.9995;
+ if(ball.x<10){ball.x=10;ball.vx=Math.abs(ball.vx)*.65}
+ if(ball.x>350){ball.x=350;ball.vx=-Math.abs(ball.vx)*.65}
+ if(ball.y<10){ball.y=10;ball.vy=Math.abs(ball.vy)*.7}
+ for(const p of platforms)hitSegment(p.a,p.b);
+ for(const s of strokes)for(let i=1;i<s.points.length;i++){
+  const a=s.points[i-1],b=s.points[i];
+  if(ball.x<Math.min(a.x,b.x)-14||ball.x>Math.max(a.x,b.x)+14||ball.y<Math.min(a.y,b.y)-14||ball.y>Math.max(a.y,b.y)+14)continue;
+  hitSegment(a,b);
+ }
+ for(const h of hazards)if(distance(ball,h)<R+h.r-1){finish(false,'Шарик попал в препятствие');return}
+ for(const s of stars)if(!s.got&&distance(ball,s)<19)s.got=true;
+ if(distance(ball,goal)<23){finish(true,'');return}
+ if(ball.y>H+13){finish(false,'Шарик упал мимо цели');return}
+ if(elapsed>24){finish(false,'Время вышло');return}
+ trail.push({x:ball.x,y:ball.y});if(trail.length>22)trail.shift();
+}
+function dot(x,y,r,c){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=c;ctx.fill()}
+function line(a,b,w,c){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle=c;ctx.lineWidth=w;ctx.lineCap='round';ctx.stroke()}
+function star(x,y,r){ctx.beginPath();for(let i=0;i<10;i++){const ang=-Math.PI/2+i*Math.PI/5,radius=i%2?r*.43:r;if(i)ctx.lineTo(x+Math.cos(ang)*radius,y+Math.sin(ang)*radius);else ctx.moveTo(x+Math.cos(ang)*radius,y+Math.sin(ang)*radius)}ctx.closePath()}
+function draw(){
+ ctx.fillStyle='#080808';ctx.fillRect(0,0,W,H);
+ for(const p of platforms){line(p.a,p.b,9,'#252525');line(p.a,p.b,4,'#747474');}
+ for(const h of hazards){ctx.save();ctx.translate(h.x,h.y);ctx.rotate(clock*.7);ctx.beginPath();for(let i=0;i<20;i++){const a=i*Math.PI/10,r=i%2?8:16;i?ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r):ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r)}ctx.closePath();ctx.fillStyle='#bb4949';ctx.fill();ctx.restore()}
+ for(const s of stars)if(!s.got){star(s.x,s.y,9);ctx.fillStyle='#e2ca83';ctx.fill()}
+ for(const s of strokes){if(s.points.length<2)continue;ctx.save();ctx.beginPath();ctx.moveTo(s.points[0].x,s.points[0].y);for(let i=1;i<s.points.length;i++)ctx.lineTo(s.points[i].x,s.points[i].y);ctx.strokeStyle='#eeeeee';ctx.lineWidth=4;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();ctx.restore()}
+ if(tapStart){dot(tapStart.x,tapStart.y,4,'#fff');ctx.beginPath();ctx.arc(tapStart.x,tapStart.y,10,0,Math.PI*2);ctx.strokeStyle='#777';ctx.lineWidth=1;ctx.stroke()}
+ ctx.save();ctx.shadowColor='#fff';ctx.shadowBlur=12;ctx.strokeStyle='#eee';ctx.lineWidth=3;ctx.beginPath();ctx.arc(goal.x,goal.y,22,0,Math.PI*2);ctx.stroke();ctx.restore();
+ ctx.fillStyle='#777';ctx.font='11px system-ui';ctx.textAlign='center';ctx.fillText('ЦЕЛЬ',goal.x,goal.y-35);
+ ctx.fillStyle='#666';ctx.fillText('СТАРТ',spawn.x,spawn.y-25);
+ for(let i=0;i<trail.length;i++){const p=trail[i];dot(p.x,p.y,1.5+2*i/trail.length,`rgba(255,255,255,${.08+.13*i/trail.length})`)}
+ ctx.save();ctx.shadowColor='#fff';ctx.shadowBlur=14;dot(ball.x,ball.y,R,'#fff');ctx.restore();
+ if(!hasDrawn&&phase==='ready'){
+  ctx.fillStyle='#777';ctx.font='12px system-ui';ctx.textAlign='center';
+  ctx.fillText('Нарисуй линию пальцем',180,246);
+  ctx.fillText('или задай её двумя касаниями',180,264);
+ }
+}
+function resize(){const r=canvas.getBoundingClientRect();if(!r.width||!r.height)return;const dpr=Math.min(2,devicePixelRatio||1);canvas.width=Math.max(1,Math.round(r.width*dpr));canvas.height=Math.max(1,Math.round(r.height*dpr));ctx.setTransform(canvas.width/W,0,0,canvas.height/H,0,0)}
+let last=performance.now(),acc=0;
+function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;clock+=dt;if(phase==='running'){
+ acc+=dt;let i=0;while(acc>=1/120&&i<7&&phase==='running'){physics(1/120);acc-=1/120;i++}if(i===7)acc=0;
+}else acc=0;
+ draw();requestAnimationFrame(frame);
+}
+makeLevel();resize();
+if(typeof ResizeObserver!=='undefined')new ResizeObserver(resize).observe($('board'));else addEventListener('resize',resize);
+requestAnimationFrame(frame);
 })();
 </script>
 </body>
