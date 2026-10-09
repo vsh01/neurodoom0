@@ -70,6 +70,7 @@ const rng=seed=>()=>{seed=(seed+0x6d2b79f5)|0;let t=Math.imul(seed^seed>>>15,1|s
 let level=1,phase='ready',clock=0,elapsed=0,strokes=[],platforms=[],hazards=[],stars=[],trail=[];
 let spawn={x:46,y:52},goal={x:309,y:480},ball={x:46,y:52,vx:0,vy:0};
 let drawing=null,pointerId=null,tapStart=null,hasDrawn=false;
+const TAP_THRESHOLD_PX=12;
 try{level=Math.max(1,Math.floor(Number(localStorage.getItem('gravishar-level'))||1))}catch(_){ }
 function nearest(x,y,a,b){const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);return{x:a.x+dx*t,y:a.y+dy*t}}
 function makeLevel(){
@@ -97,7 +98,7 @@ function resetRun(keepLines=true){
  if(!keepLines)strokes=[];
  ball={x:spawn.x,y:spawn.y,vx:0,vy:0};elapsed=0;trail=[];
  stars.forEach(s=>s.got=false);
- phase='ready';drawing=null;pointerId=null;tapStart=null;
+ phase='ready';drawing=null;pointerId=null;tapStart=null;hasDrawn=strokes.length>0;
  $('overlay').hidden=true;$('play').disabled=false;$('play').textContent='▶ Запуск';
  controls();
 }
@@ -124,13 +125,20 @@ function down(e){
  if(phase!=='ready'||pointerId!==null)return;
  e.preventDefault();pointerId=e.pointerId;
  try{canvas.setPointerCapture(pointerId)}catch(_){ }
- drawing={points:[coords(e)],moved:false};
+ drawing={points:[coords(e)],moved:false,startClientX:e.clientX,startClientY:e.clientY};
 }
 function move(e){
  if(e.pointerId!==pointerId||!drawing)return;
- e.preventDefault();const p=coords(e),arr=drawing.points,a=arr[arr.length-1];
- if(distance(a,p)<3)return;
- if(!drawing.moved){drawing.moved=true;tapStart=null;strokes.push(drawing);}
+ e.preventDefault();
+ const p=coords(e),arr=drawing.points,a=arr[arr.length-1];
+ // A finger shift of up to 12 screen pixels still counts as a tap.
+ // Once it passes the threshold it becomes a freehand stroke, with no mode switch.
+ if(!drawing.moved){
+  const movement=Math.hypot(e.clientX-drawing.startClientX,e.clientY-drawing.startClientY);
+  if(movement<TAP_THRESHOLD_PX)return;
+  drawing.moved=true;tapStart=null;strokes.push(drawing);
+ }
+ if(distance(a,p)<2)return;
  arr.push(p);hasDrawn=true;controls();
 }
 function up(e){
@@ -138,16 +146,27 @@ function up(e){
  e.preventDefault();pointerId=null;
  if(drawing&&!drawing.moved){
   const p=drawing.points[0];
-  if(tapStart){addSegment(tapStart,p);tapStart=null}else tapStart=p;
+  if(tapStart){
+   if(distance(tapStart,p)>=6){addSegment(tapStart,p);tapStart=null}
+   // A double tap in almost the same spot retains the anchor.
+  }else tapStart=p;
  }
  drawing=null;controls();
 }
-for(const name of ['pointerdown'])canvas.addEventListener(name,down);
+function cancel(e){
+ if(e.pointerId!==pointerId)return;
+ pointerId=null;drawing=null;controls();
+}
+canvas.addEventListener('pointerdown',down);
 canvas.addEventListener('pointermove',move);
 canvas.addEventListener('pointerup',up);
-canvas.addEventListener('pointercancel',up);
+canvas.addEventListener('pointercancel',cancel);
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
-for(const node of [canvas,$('board')])for(const name of ['touchstart','touchmove','gesturestart'])node.addEventListener(name,e=>{if(e.cancelable)e.preventDefault()},{passive:false});
+// Do not intercept touches on the result dialog. On iOS canceling
+// touchstart on the board suppresses the native click on modal buttons.
+for(const name of ['touchstart','touchmove','gesturestart']){
+ canvas.addEventListener(name,e=>{if(e.cancelable)e.preventDefault()},{passive:false});
+}
 $('undo').addEventListener('click',()=>{if(phase!=='ready')return;if(tapStart)tapStart=null;else strokes.pop();controls()});
 $('clear').addEventListener('click',()=>{if(phase!=='ready')return;strokes=[];tapStart=null;controls()});
 $('play').addEventListener('click',()=>{if(phase!=='ready')return;tapStart=null;phase='running';controls()});
