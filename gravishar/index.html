@@ -70,6 +70,7 @@ const rng=seed=>()=>{seed=(seed+0x6d2b79f5)|0;let t=Math.imul(seed^seed>>>15,1|s
 let level=1,phase='ready',clock=0,elapsed=0,strokes=[],platforms=[],hazards=[],stars=[],trail=[];
 let spawn={x:46,y:52},goal={x:309,y:480},ball={x:46,y:52,vx:0,vy:0};
 let drawing=null,pointerId=null,tapStart=null,hasDrawn=false;
+let stillSamples=[],stillSampleTime=0;
 const TAP_THRESHOLD_PX=12;
 try{level=Math.max(1,Math.floor(Number(localStorage.getItem('gravishar-level'))||1))}catch(_){ }
 function nearest(x,y,a,b){const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);return{x:a.x+dx*t,y:a.y+dy*t}}
@@ -97,6 +98,7 @@ function makeLevel(){
 function resetRun(keepLines=true){
  if(!keepLines)strokes=[];
  ball={x:spawn.x,y:spawn.y,vx:0,vy:0};elapsed=0;trail=[];
+ stillSamples=[];stillSampleTime=0;
  stars.forEach(s=>s.got=false);
  phase='ready';drawing=null;pointerId=null;tapStart=null;hasDrawn=strokes.length>0;
  $('overlay').hidden=true;$('play').disabled=false;$('play').textContent='▶ Запуск';
@@ -184,6 +186,21 @@ function hitSegment(a,b){
  const dot=ball.vx*nx+ball.vy*ny;
  if(dot<0){ball.vx-=1.13*dot*nx;ball.vy-=1.13*dot*ny;ball.vx*=.998;}
 }
+function detectStall(dt){
+ // Detect a ball confined to a tiny area, not simply one moving slowly.
+ stillSampleTime+=dt;
+ if(stillSampleTime<.2)return;
+ stillSampleTime=0;
+ stillSamples.push({x:ball.x,y:ball.y,t:elapsed});
+ while(stillSamples.length && elapsed-stillSamples[0].t>3.3)stillSamples.shift();
+ if(stillSamples.length<16 || elapsed-stillSamples[0].t<3)return;
+ let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+ for(const p of stillSamples){
+  minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);
+  minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);
+ }
+ if(maxX-minX<11 && maxY-minY<11)finish(false,'Шарик застрял. Попробуй изменить линии');
+}
 function physics(dt){
  elapsed+=dt;ball.vy+=540*dt;
  const speed=Math.hypot(ball.vx,ball.vy);
@@ -204,6 +221,8 @@ function physics(dt){
  if(distance(ball,goal)<23){finish(true,'');return}
  if(ball.y>H+13){finish(false,'Шарик упал мимо цели');return}
  if(elapsed>24){finish(false,'Время вышло');return}
+ detectStall(dt);
+ if(phase!=='running')return;
  trail.push({x:ball.x,y:ball.y});if(trail.length>22)trail.shift();
 }
 function dot(x,y,r,c){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=c;ctx.fill()}
