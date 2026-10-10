@@ -72,15 +72,18 @@ jobs:
       - name: Verify published calculator URL
         shell: bash
         run: |
-          url="${{ steps.deployment.outputs.page_url }}calculator/"
-          echo "Checking published page: $url"
-          for attempt in 1 2 3 4 5; do
-            if curl --fail --silent --show-error --location --max-time 20 "$url" | grep -qF '<title>Муркулятор 🐱</title>'; then
-              echo "Calculator page is publicly reachable and contains its HTML."
+          base="${{ steps.deployment.outputs.page_url }}calculator/"
+          url="${base}?v=${GITHUB_SHA}"
+          echo "Checking published page with cache-busting: $url"
+          for attempt in 1 2 3 4 5 6 7 8; do
+            code=$(curl -sSL -H 'Cache-Control: no-cache' --max-time 20 -o /tmp/murculator-response.html -w '%{http_code}' "$url") || code="network-error"
+            echo "Attempt $attempt HTTP status: $code"
+            echo "Page title: $(grep -o '<title>[^<]*</title>' /tmp/murculator-response.html | head -1 || true)"
+            if [ "$code" = "200" ] && grep -qF '<title>Муркулятор 🐱</title>' /tmp/murculator-response.html; then
+              echo "Murculator page is publicly reachable with updated HTML."
               exit 0
             fi
-            echo "Attempt $attempt: calculator was not reachable yet."
-            sleep 6
+            sleep 8
           done
-          echo "::error::Calculator URL failed the post-deploy smoke test."
+          echo "::error::Murculator URL failed the post-deploy smoke test."
           exit 1
