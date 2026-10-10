@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#09090b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Калькулятор</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color-scheme:dark;background:#09090b;color:#fafafa}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;min-height:100%;overscroll-behavior:none}
+button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+#app{max-width:480px;min-height:100vh;min-height:100dvh;margin:auto;padding:calc(env(safe-area-inset-top) + 20px) 18px calc(env(safe-area-inset-bottom) + 16px);display:flex;flex-direction:column;gap:16px}
+header{display:flex;justify-content:space-between;align-items:center;min-height:32px}
+.brand{font-size:13px;font-weight:800;letter-spacing:.19em}
+.sub{font-size:12px;color:#777}
+.screen{flex:1;min-height:130px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;text-align:right;padding:0 6px 12px;overflow:hidden}
+#history{min-height:29px;max-width:100%;color:#808087;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.outputrow{display:flex;justify-content:flex-end;align-items:center;min-width:0;width:100%;gap:8px}
+#output{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:350;font-size:clamp(43px,11vw,76px);font-variant-numeric:tabular-nums;letter-spacing:-.045em;line-height:1.22}
+#copy{flex:none;border:0;background:none;color:#6e6e73;padding:8px;border-radius:10px;display:grid;place-items:center}
+#copy svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+#copy:active{color:white}
+.keys{height:min(58dvh,520px);min-height:310px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(5,minmax(0,1fr));gap:10px}
+.key{border:1px solid #303034;border-radius:19px;color:#eee;background:#1e1e22;font-size:clamp(23px,6vw,32px);font-weight:450;user-select:none;-webkit-user-select:none;transition:background .1s,transform .1s}
+.key:active{transform:scale(.95);background:#3b3b42}
+.key.utility,.key.op{background:#323237;border-color:#3b3b40}
+.key.utility{font-size:23px}
+.key.op{font-size:32px}
+.key.op.active{background:#f6f6f6;color:#121212;border-color:#f6f6f6}
+.key.equal{background:#f5f5f5;color:#111;border-color:#f5f5f5;font-size:35px}
+.key.equal:active{background:#cfcfcf}
+.key svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
+footer{text-align:center;color:#55555b;font-size:11px}
+@media(max-height:640px){#app{gap:8px;padding-top:calc(env(safe-area-inset-top) + 8px);padding-bottom:calc(env(safe-area-inset-bottom) + 8px)}.screen{min-height:80px;padding-bottom:0}.keys{min-height:235px;height:61dvh;gap:7px}.key{border-radius:13px}footer{display:none}}
+@media(prefers-reduced-motion:reduce){.key{transition:none}}
+</style>
+</head>
+<body>
+<main id="app">
+<header><span class="brand">CALCULATOR</span><span class="sub">01 / SIMPLE</span></header>
+<section class="screen" aria-label="Экран калькулятора">
+<div id="history" aria-live="polite"></div>
+<div class="outputrow"><output id="output" aria-live="polite" aria-atomic="true">0</output>
+<button id="copy" aria-label="Скопировать результат" title="Скопировать результат" type="button"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button></div>
+</section>
+<section class="keys" aria-label="Кнопки калькулятора">
+<button class="key utility" data-v="clear" aria-label="Очистить">AC</button>
+<button class="key utility" data-v="sign" aria-label="Изменить знак">±</button>
+<button class="key utility" data-v="percent" aria-label="Проценты">%</button>
+<button class="key op" data-v="/" aria-label="Разделить">÷</button>
+<button class="key" data-v="7">7</button><button class="key" data-v="8">8</button><button class="key" data-v="9">9</button>
+<button class="key op" data-v="*" aria-label="Умножить">×</button>
+<button class="key" data-v="4">4</button><button class="key" data-v="5">5</button><button class="key" data-v="6">6</button>
+<button class="key op" data-v="-" aria-label="Вычесть">−</button>
+<button class="key" data-v="1">1</button><button class="key" data-v="2">2</button><button class="key" data-v="3">3</button>
+<button class="key op" data-v="+" aria-label="Сложить">+</button>
+<button class="key utility" data-v="back" aria-label="Удалить символ"><svg viewBox="0 0 24 24"><path d="M9 4H20a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H9L2 12l7-8Z"/><path d="m12 9 6 6m0-6-6 6"/></svg></button>
+<button class="key" data-v="0">0</button>
+<button class="key" data-v="." aria-label="Десятичная запятая">,</button>
+<button class="key equal" data-v="=" aria-label="Равно">=</button>
+</section>
+<footer>Работает с клавиатурой · нажми на значок для копирования</footer>
+</main>
+<script>
+(() => {
+'use strict';
+const output = document.getElementById('output');
+const historyEl = document.getElementById('history');
+const symbols={'+':'+','-':'−','*':'×','/':'÷'};
+let current='0', saved=null, op=null, awaiting=false, history='', lastOp=null, lastArg=null, evaluated=false, error=false;
+function fmt(raw) {
+ const s=String(raw);
+ if(s==='Ошибка'||s.includes('e'))return s.replace('.',',');
+ const neg=s[0]==='-'?'−':'';
+ const v=neg?s.slice(1):s;
+ const p=v.split('.');
+ return neg+p[0].replace(/\B(?=(\d{3})+(?!\d))/g,'\u202f')+(p.length>1?','+p[1]:'');
+}
+function round(n){return Number.isFinite(n)?String(Number(n.toPrecision(13))):null}
+function calc(a,b,o){if(o==='+')return a+b;if(o==='-')return a-b;if(o==='*')return a*b;if(o==='/')return b===0?NaN:a/b;return b}
+function reset(){current='0';saved=null;op=null;awaiting=false;history='';lastOp=null;lastArg=null;evaluated=false;error=false}
+function fail(){error=true;current='Ошибка';saved=null;op=null;awaiting=false;history='Невозможно вычислить';lastOp=null;lastArg=null;evaluated=false}
+function render(){
+ const display=fmt(current);
+ output.textContent=display;historyEl.textContent=history;
+ output.style.fontSize=display.length>18?'29px':display.length>14?'39px':display.length>11?'49px':'';
+ document.querySelectorAll('.op').forEach(b=>{const on=b.dataset.v===op&&awaiting;b.classList.toggle('active',on);b.setAttribute('aria-pressed',String(on))});
+}
+function start(){if(error)reset();if(evaluated&&op===null){history='';lastOp=null;lastArg=null;evaluated=false}}
+function digit(v){start();if(awaiting){current='0';awaiting=false}if(current.replace(/\D/g,'').length>=13)return;if(current==='0')current=v;else if(current==='-0')current='-'+v;else current+=v}
+function dot(){start();if(awaiting){current='0';awaiting=false}if(!current.includes('.'))current+='.'}
+function sign(){if(error){reset();return}if(awaiting){current='0';awaiting=false}current=current.startsWith('-')?current.slice(1):'-'+current;evaluated=false}
+function percent(){if(error)return;if(awaiting){current='0';awaiting=false}const n=Number(current);const v=round(saved!==null&&(op==='+'||op==='-')?saved*n/100:n/100);if(v===null)fail();else current=v;evaluated=false}
+function operator(next){
+ if(error)return;
+ if(saved!==null&&op!==null&&!awaiting){
+  const v=round(calc(saved,Number(current),op));
+  if(v===null){fail();return}
+  current=v;saved=Number(v);
+ }else if(saved===null){saved=Number(current)}
+ op=next;awaiting=true;evaluated=false;lastOp=null;lastArg=null;
+ history=fmt(current)+' '+symbols[next];
+}
+function equals(){
+ if(error)return;
+ if(op!==null&&saved!==null){
+  const a=saved,b=awaiting?saved:Number(current),o=op;
+  const v=round(calc(a,b,o));if(v===null){fail();return}
+  history=fmt(a)+' '+symbols[o]+' '+fmt(b)+' =';
+  current=v;saved=null;op=null;awaiting=true;evaluated=true;lastOp=o;lastArg=b;
+ }else if(lastOp!==null){
+  const a=Number(current),v=round(calc(a,lastArg,lastOp));if(v===null){fail();return}
+  history=fmt(a)+' '+symbols[lastOp]+' '+fmt(lastArg)+' =';
+  current=v;awaiting=true;evaluated=true;
+ }
+}
+function back(){
+ if(error){reset();return}
+ if(awaiting&&op!==null)return;
+ if(evaluated){history='';lastOp=null;lastArg=null;evaluated=false}
+ current=current.length<=1||(current.length===2&&current[0]==='-')?'0':current.slice(0,-1)
+}
+function press(v){
+ if(/^[0-9]$/.test(v))digit(v);
+ else if(v==='.')dot();
+ else if(v==='clear')reset();
+ else if(v==='back')back();
+ else if(v==='sign')sign();
+ else if(v==='percent')percent();
+ else if(Object.prototype.hasOwnProperty.call(symbols,v))operator(v);
+ else if(v==='=')equals();
+ render();
+}
+document.querySelector('.keys').addEventListener('click',e=>{
+ const b=e.target.closest('button[data-v]');if(b)press(b.dataset.v);
+});
+document.addEventListener('keydown',e=>{
+ if(e.ctrlKey||e.altKey||e.metaKey)return;
+ const k=e.key;let v=null;
+ if(/^[0-9]$/.test(k))v=k;
+ else if(k==='.'||k===',')v='.';
+ else if(['+','-','*','/'].includes(k))v=k;
+ else if(k==='x'||k==='X')v='*';
+ else if(k==='Enter'||k==='=')v='=';
+ else if(k==='Backspace')v='back';
+ else if(k==='Escape'||k==='Delete')v='clear';
+ else if(k==='%')v='percent';
+ if(v!==null){e.preventDefault();press(v)}
+});
+document.getElementById('copy').addEventListener('click',async()=>{
+ if(error)return;
+ try{await navigator.clipboard.writeText(current);const b=document.getElementById('copy');b.title='Скопировано';b.setAttribute('aria-label','Скопировано');setTimeout(()=>{b.title='Скопировать результат';b.setAttribute('aria-label','Скопировать результат')},1200)}catch(e){}
+});
+render();
+})();
+</script>
+</body>
+</html>
