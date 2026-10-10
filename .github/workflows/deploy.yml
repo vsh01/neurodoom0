@@ -50,13 +50,32 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Check Murculator JavaScript syntax and cat controls
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const vm = require('vm');
+          const html = fs.readFileSync('calculator/index.html', 'utf8');
+          const script = html.match(/<script>([\s\S]*?)<\/script>/);
+          if (!script) throw new Error('Calculator script missing');
+          new vm.Script(script[1], { filename: 'calculator.js' });
+          const buttons = (html.match(/data-v="/g) || []).length;
+          if (buttons !== 20 || !html.includes('id="pet-cat"') || !html.includes('class="cat-stamp"')) {
+            // Cat stamps are generated at runtime; their markup is not in the static HTML.
+            if (buttons !== 20 || !html.includes('id="pet-cat"') || !html.includes("stamp.className='cat-stamp'")) {
+              throw new Error('Cat UI or calculator buttons missing');
+            }
+          }
+          console.log('Murculator JS syntax, 20 calculator buttons and cat controls verified');
+          NODE
       - name: Verify published calculator URL
         shell: bash
         run: |
           url="${{ steps.deployment.outputs.page_url }}calculator/"
           echo "Checking published page: $url"
           for attempt in 1 2 3 4 5; do
-            if curl --fail --silent --show-error --location --max-time 20 "$url" | grep -qF '<title>Калькулятор</title>'; then
+            if curl --fail --silent --show-error --location --max-time 20 "$url" | grep -qF '<title>Муркулятор 🐱</title>'; then
               echo "Calculator page is publicly reachable and contains its HTML."
               exit 0
             fi
