@@ -50,3 +50,18 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify published calculator URL
+        shell: bash
+        run: |
+          url="${{ steps.deployment.outputs.page_url }}calculator/"
+          echo "Checking published page: $url"
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --location --max-time 20 "$url" | grep -qF '<title>Калькулятор</title>'; then
+              echo "Calculator page is publicly reachable and contains its HTML."
+              exit 0
+            fi
+            echo "Attempt $attempt: calculator was not reachable yet."
+            sleep 6
+          done
+          echo "::error::Calculator URL failed the post-deploy smoke test."
+          exit 1
